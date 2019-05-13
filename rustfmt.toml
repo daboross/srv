@@ -1,0 +1,4 @@
+report_fixme = "unnumbered"
+use_try_shorthand = true
+condense_wildcard_suffixes = true
+format_strings = false
