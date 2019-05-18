@@ -41,3 +41,4 @@ nb-configuration.xml
 *.sublime-workspace
 Cargo.lock
 .env
+srv.log

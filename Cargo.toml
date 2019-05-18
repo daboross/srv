@@ -1,5 +1,34 @@
 [package]
-name = "srv-cli"
+name = "srv"
 version = "0.1.0"
 authors = ["David Ross <daboross@daboross.net>"]
 edition = "2018"
+
+[dependencies]
+bytes = "0.4"
+chrono = "0.4"
+fern = "0.5"
+hyper = "0.12"
+hyper-tls = "0.3"
+log = "0.4"
+serde_json = "1"
+structopt = "0.2"
+tokio = "0.1"
+websocket = "0.22"
+
+[dependencies.cursive]
+version = "0.12"
+default-features = false
+features = ["termion-backend"]
+
+[dependencies.old_futures]
+package = "futures"
+version = "0.1"
+
+[dependencies.futures-preview]
+version = "0.3.0-alpha"
+features = ["compat"]
+
+[dependencies.screeps-api]
+version = "0.5"
+git = "https://github.com/daboross/rust-screeps-api.git"
