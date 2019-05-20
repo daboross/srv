@@ -9,12 +9,21 @@ Screeps is a true programming MMO where users uploading JavaScript code to power
 
 Uses [rust-screeps-api] under the hood.
 
+## Screenshot
+
+![screenshot image of srv](./docs/screenshot.png)
+
 ## Building
 
+Run debug build
 ```
-cd srv-cli
+cargo run -- --help
+```
+
+Compile release build
+```
 cargo build --release
-cargo run --release -- --help
+./target/release/srv --help
 ```
 
 [travis-image]: https://travis-ci.org/daboross/srv-cli.svg?branch=master
