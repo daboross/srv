@@ -61,6 +61,7 @@ pub struct Room {
 
 impl Room {
     pub fn new(room: RoomId, terrain: RoomTerrain) -> Self {
+        assert_eq!(room.room_name, terrain.room_name);
         Room {
             last_update_time: None,
             room,
@@ -132,8 +133,8 @@ impl Room {
             for (col_idx, item) in row.iter().enumerate() {
                 if let Some(itt) = InterestingTerrainType::from_terrain(*item) {
                     room.push_top(VisualObject::InterestingTerrain {
-                        x: row_idx as u32,
-                        y: col_idx as u32,
+                        x: col_idx as u32,
+                        y: row_idx as u32,
                         ty: itt,
                     });
                 }

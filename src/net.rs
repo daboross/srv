@@ -11,7 +11,7 @@ use log::{debug, error, info};
 use old_futures::stream::Stream as OldStream;
 use screeps_api::{
     websocket::{ChannelUpdate, ScreepsMessage, SockjsMessage},
-    Api, MyInfo, TokenStorage,
+    Api, MyInfo, RoomName, TokenStorage,
 };
 use websocket::{ClientBuilder, OwnedMessage};
 
@@ -112,9 +112,32 @@ impl Stage1 {
         let ui_user = user.clone();
         ui::async_update(&self.ui, |s| s.user(ui_user))?;
 
+        let (shard, room) = match (self.config.shard.as_ref(), self.config.room.as_ref()) {
+            (shard, Some(room)) => (shard.cloned(), room.clone()),
+            (Some(shard), None) => {
+                let room_name = self
+                    .client
+                    .shard_start_room(shard)?
+                    .compat()
+                    .await?
+                    .room_name;
+                let room_name = RoomName::new(&room_name).map_err(|e| e.into_owned())?;
+                (Some(shard.clone()), room_name)
+            }
+            (None, None) => {
+                let start_room = self.client.world_start_room()?.compat().await?;
+                let room_name = RoomName::new(&start_room.room_name).map_err(|e| e.into_owned())?;
+                (start_room.shard, room_name)
+            }
+        };
+
+        let room_id = RoomId::new(shard, room);
+
+        debug!("starting at room {}", room_id);
+
         let terrain = self
             .client
-            .room_terrain(self.config.shard.as_ref(), self.config.room.to_string())
+            .room_terrain(room_id.shard.as_ref(), room_id.room_name.to_string())
             .compat()
             .await?;
 
@@ -128,8 +151,6 @@ impl Stage1 {
             .unwrap_or(DEFAULT_OFFICIAL_API_URL);
 
         let ws_url = transform_url(ws_url)?;
-
-        let room_id = RoomId::new(self.config.shard.clone(), self.config.room);
 
         let room = Room::new(room_id.clone(), terrain);
 

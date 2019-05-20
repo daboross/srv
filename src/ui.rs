@@ -119,6 +119,12 @@ pub fn setup(c: &mut Cursive) {
 
     layout.add_child(sidebar);
 
+    layout.add_child(
+        DebugView::new()
+            .boxed(SizeConstraint::AtMost(40), SizeConstraint::AtMost(40))
+            .squishable(),
+    );
+
     c.add_layer(layout);
 }
 
@@ -127,16 +133,16 @@ fn to_symbol(thing: &VisualObject) -> &'static str {
         VisualObject::InterestingTerrain {
             ty: InterestingTerrainType::Swamp,
             ..
-        } => "~",
+        } => "⌇",
         VisualObject::InterestingTerrain {
             ty: InterestingTerrainType::Wall,
             ..
         } => "█",
         VisualObject::Flag(_) => "F",
         VisualObject::RoomObject(obj) => match obj {
-            KnownRoomObject::Container(..) => "B",
+            KnownRoomObject::Container(..) => "▫",
             KnownRoomObject::Controller(..) => "C",
-            KnownRoomObject::Creep(..) => "⚬",
+            KnownRoomObject::Creep(..) => "●",
             KnownRoomObject::Extension(..) => "E",
             KnownRoomObject::Extractor(..) => "X",
             KnownRoomObject::KeeperLair(..) => "K",
@@ -148,9 +154,9 @@ fn to_symbol(thing: &VisualObject) -> &'static str {
             KnownRoomObject::Portal(..) => "P",
             KnownRoomObject::PowerBank(..) => "B",
             KnownRoomObject::PowerSpawn(..) => "R",
-            KnownRoomObject::Rampart(..) => "[",
-            KnownRoomObject::Resource(..) => ".",
-            KnownRoomObject::Road(..) => "-",
+            KnownRoomObject::Rampart(..) => "▒",
+            KnownRoomObject::Resource(..) => "▪",
+            KnownRoomObject::Road(..) => "╬",
             KnownRoomObject::Source(..) => "S",
             KnownRoomObject::Spawn(..) => "P",
             KnownRoomObject::Storage(..) => "O",

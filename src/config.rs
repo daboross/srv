@@ -16,7 +16,7 @@ pub struct Config {
     pub shard: Option<String>,
     /// The room to watch
     #[structopt(short = "r", long = "room", parse(try_from_str = "RoomName::new"))]
-    pub room: RoomName,
+    pub room: Option<RoomName>,
     /// Increase log verbosity
     #[structopt(short = "v", parse(from_occurrences))]
     pub verbosity: u64,
@@ -35,16 +35,22 @@ fn setup_logging(verbosity: u64) {
         .level(log_level)
         .level_for("rustls", log::LevelFilter::Warn)
         .level_for("hyper", log::LevelFilter::Warn)
-        .format(|out, message, record| {
-            let now = chrono::Local::now();
+        .chain(
+            fern::Dispatch::new()
+                .format(|out, message, record| {
+                    let now = chrono::Local::now();
 
-            out.finish(format_args!("[{}][{}] {}: {}",
-                                    now.format("%H:%M:%S"),
-                                    record.level(),
-                                    record.target(),
-                                    message));
-        })
-        .chain(fern::log_file("srv.log").unwrap())
+                    out.finish(format_args!(
+                        "[{}][{}] {}: {}",
+                        now.format("%H:%M:%S"),
+                        record.level(),
+                        record.target(),
+                        message
+                    ));
+                })
+                .chain(fern::log_file("srv.log").unwrap()),
+        )
+        .chain(Box::new(cursive::logger::get_logger()) as Box<dyn log::Log>)
         .apply()
         // ignore errors
         .unwrap_or(());
