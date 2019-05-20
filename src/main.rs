@@ -1,5 +1,6 @@
 use cursive::Cursive;
 
+use log::debug;
 use srv::{config, net, ui};
 
 fn main() {
@@ -13,9 +14,7 @@ fn main() {
     ui::setup(&mut siv);
     net::spawn(config.clone(), siv.cb_sink().clone());
 
+    debug!("running srv ui");
     siv.run();
-
-    loop {
-        std::thread::yield_now();
-    }
+    debug!("srv ui exited normally");
 }

@@ -1,31 +1,37 @@
-use std::{borrow::Cow, collections::HashMap, thread};
+use std::thread;
 
 use cursive::CbSink;
 use futures::{
     compat::{Future01CompatExt, Sink01CompatExt, Stream01CompatExt},
-    future, stream, Future, FutureExt, Sink, SinkExt, Stream, TryFutureExt, TryStreamExt,
+    future, FutureExt, Sink, SinkExt, Stream, TryFutureExt, TryStreamExt,
 };
 use hyper::client::HttpConnector;
 use hyper_tls::HttpsConnector;
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use old_futures::stream::Stream as OldStream;
 use screeps_api::{
-    websocket::{
-        types::room::objects::KnownRoomObject, Channel, ChannelUpdate, RoomUpdate, ScreepsMessage,
-        SockjsMessage,
-    },
-    Api, MyInfo, RoomName, TokenStorage,
+    websocket::{ChannelUpdate, ScreepsMessage, SockjsMessage},
+    Api, MyInfo, TokenStorage,
 };
 use websocket::{ClientBuilder, OwnedMessage};
 
-use crate::{config::Config, room::Room};
+use crate::{
+    config::Config,
+    room::{ConnectionState, Room, RoomId},
+    ui::{self, CursiveStatePair},
+};
 
 pub type Error = Box<::std::error::Error>;
 
 pub fn spawn(config: Config, ui: CbSink) {
     thread::spawn(|| {
-        if let Err(e) = run(config, ui) {
-            error!("Error occurred: {0} ({0:?})", e);
+        let err_ui_sink = ui.clone();
+        let res = run(config, ui);
+
+        if let Err(e) = res {
+            error!("Network thread error: {0} ({0:?})", e);
+            // ignore errors sending error report
+            let _ = ui::async_update(&err_ui_sink, |s| s.conn_state(ConnectionState::Error));
             panic!("Error: {:?}", e);
         }
     });
@@ -42,15 +48,21 @@ struct Stage1 {
     ui: CbSink,
 }
 
-struct Stage2<Si, St> {
+#[allow(unused)]
+struct ConnIndepState {
     config: Config,
+    room_id: RoomId,
     client: Api<HttpsConnector<HttpConnector>>,
     ui: CbSink,
     tokens: TokenStorage,
     user: MyInfo,
+    room: Room,
+}
+
+struct Connected<Si, St> {
+    s: ConnIndepState,
     sink: Si,
     stream: St,
-    room: Room,
 }
 
 impl Stage1 {
@@ -63,6 +75,9 @@ impl Stage1 {
             client.set_url(u)?;
         }
         client.set_token(config.auth_token.clone());
+
+        let server = client.url.to_string();
+        ui::async_update(&ui, |s| s.server(server))?;
 
         Ok(Stage1 { config, client, ui })
     }
@@ -94,6 +109,15 @@ impl Stage1 {
         // info.user_id allows subscribing to messages.
         let user = self.client.my_info()?.compat().await?;
 
+        let ui_user = user.clone();
+        ui::async_update(&self.ui, |s| s.user(ui_user))?;
+
+        let terrain = self
+            .client
+            .room_terrain(self.config.shard.as_ref(), self.config.room.to_string())
+            .compat()
+            .await?;
+
         debug!("successfully authenticated as {}", user.username);
 
         let ws_url = self
@@ -103,47 +127,69 @@ impl Stage1 {
             .map(AsRef::as_ref)
             .unwrap_or(DEFAULT_OFFICIAL_API_URL);
 
-        let (conn, _) = ClientBuilder::from_url(&transform_url(ws_url)?)
-            .async_connect(None)
-            .compat()
-            .await?;
+        let ws_url = transform_url(ws_url)?;
 
-        let (sink, stream) = conn.split();
-        let mut sink = sink.sink_compat().sink_map_err(Error::from);
-        let mut stream = stream.compat().map_err(Error::from);
+        let room_id = RoomId::new(self.config.shard.clone(), self.config.room);
 
-        sink.send(OwnedMessage::Text(authenticate(&tokens.get().unwrap())))
-            .await?;
-        sink.send(OwnedMessage::Text(subscribe(&Channel::room_detail(
-            self.config.room,
-            self.config.shard.as_ref(),
-        ))))
-        .await?;
+        let room = Room::new(room_id.clone(), terrain);
 
-        let room = Room::default();
-
-        let next = Stage2 {
+        let mut s = ConnIndepState {
             config: self.config,
             client: self.client,
             ui: self.ui,
+            room_id,
             tokens,
             user,
-            sink,
-            stream,
             room,
         };
-        debug!("stage 1 handing off");
 
-        next.run().await
+        loop {
+            let (conn, _) = ClientBuilder::from_url(&ws_url)
+                .async_connect(None)
+                .compat()
+                .await?;
+
+            let (sink, stream) = conn.split();
+            let mut sink = sink.sink_compat().sink_map_err(Error::from);
+            let stream = stream.compat().map_err(Error::from);
+
+            s.update_ui(|s| s.conn_state(ConnectionState::Authenticating))?;
+
+            sink.send(OwnedMessage::Text(authenticate(&s.tokens.get().unwrap())))
+                .await?;
+            sink.send(OwnedMessage::Text(subscribe(&Channel::room_detail(
+                s.room_id.room_name,
+                s.room_id.shard.as_ref(),
+            ))))
+            .await?;
+
+            let mut conn = Connected { s, sink, stream };
+            debug!("stage 1 handing off");
+            conn.run().await?;
+            debug!("stage 2 ended, stage 1 reconnecting");
+            // recapture state
+            s = conn.s;
+
+            s.update_ui(|s| s.conn_state(ConnectionState::Disconnected))?;
+        }
     }
 }
 
-impl<Si, St> Stage2<Si, St>
+impl ConnIndepState {
+    pub fn update_ui<F: FnOnce(&mut CursiveStatePair) + Send + 'static>(
+        &self,
+        func: F,
+    ) -> Result<(), Error> {
+        ui::async_update(&self.ui, func)
+    }
+}
+
+impl<Si, St> Connected<Si, St>
 where
     Si: Sink<OwnedMessage, SinkError = Error> + Unpin,
     St: Stream<Item = Result<OwnedMessage, Error>> + Unpin,
 {
-    async fn run(mut self) -> Result<(), Error> {
+    async fn run(&mut self) -> Result<(), Error> {
         debug!("stage 2 main loop starting");
         while let Some(msg) = self.stream.try_next().await? {
             match msg {
@@ -163,6 +209,9 @@ where
                         o => info!("ignoring message: {:?}", o),
                     }
                 }
+                OwnedMessage::Ping(data) => {
+                    self.sink.send(OwnedMessage::Pong(data)).await?;
+                }
                 o => info!("ignoring message: {:?}", o),
             }
         }
@@ -175,7 +224,9 @@ where
         match msg {
             ScreepsMessage::AuthFailed => return Err("authentication failed".into()),
             ScreepsMessage::AuthOk { new_token } => {
-                self.tokens.set(new_token);
+                self.s
+                    .update_ui(|s| s.conn_state(ConnectionState::Connected))?;
+                self.s.tokens.set(new_token);
             }
             ScreepsMessage::ChannelUpdate {
                 update:
@@ -186,19 +237,22 @@ where
                     },
             } => {
                 info!("inside branch");
-                if room_name != self.config.room || shard_name != self.config.shard {
+                let update_id = RoomId::new(shard_name, room_name);
+                if update_id != self.s.room_id {
                     info!("error matching room");
                     return Err(format!(
-                        "update for room {:?}:{} unexpected (expected {:?}:{})",
-                        shard_name, room_name, self.config.shard, self.config.room
+                        "update for room {:?} unexpected (expected {:?})",
+                        update_id, self.s.room_id
                     )
                     .into());
                 }
 
                 info!("running update");
-                self.room.update(update)?;
+                self.s.room.update(update)?;
                 info!("update success");
-                info!("room: {:?}", self.room);
+                info!("room: {:?}", self.s.room);
+                let visual = self.s.room.visualize();
+                self.s.update_ui(|s| s.room(visual))?;
             }
             other => debug!("ignoring {:?}", other),
         }

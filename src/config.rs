@@ -1,14 +1,6 @@
-use std::borrow::Cow;
-
 use bytes::Bytes;
-use futures::{future, stream, Future, Sink, Stream};
-use log::{debug, info, warn};
-use screeps_api::{
-    websocket::{Channel, ChannelUpdate, ScreepsMessage, SockjsMessage},
-    RoomName, TokenStorage,
-};
+use screeps_api::RoomName;
 use structopt::StructOpt;
-use websocket::OwnedMessage;
 
 #[derive(Clone, Debug, StructOpt)]
 #[structopt(name = "srv", about = "screeps room view client")]
@@ -56,6 +48,9 @@ fn setup_logging(verbosity: u64) {
         .apply()
         // ignore errors
         .unwrap_or(());
+
+    // log panics
+    log_panics::init();
 }
 
 pub fn setup() -> Config {
