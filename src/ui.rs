@@ -17,6 +17,7 @@ mod ids {
     pub const SERVER_STATE: &str = "server-state";
     pub const USERNAME: &str = "username";
     pub const ROOM_ID: &str = "room-id";
+    pub const LAST_UPDATE_TIME: &str = "last-update-game-time";
 }
 
 #[derive(Clone, Debug, Default)]
@@ -55,6 +56,12 @@ impl CursiveStatePair<'_, '_> {
                 .find_id::<TextView>(ids::ROOM_ID)
                 .expect("expected to find ROOM_ID view")
                 .set_content(room.room_id.to_string());
+        }
+        if let Some(updated) = room.last_update_time {
+            self.siv
+                .find_id::<TextView>(ids::LAST_UPDATE_TIME)
+                .expect("expected to find LAST_UPDATE_TIME view")
+                .set_content(format!("updated: {}", updated));
         }
         self.state.room = Some(room);
     }
@@ -104,10 +111,11 @@ pub fn setup(c: &mut Cursive) {
     ));
 
     let mut sidebar = LinearLayout::new(Orientation::Vertical);
-    sidebar.add_child(TextView::new("???").with_id(ids::SERVER_STATE));
-    sidebar.add_child(TextView::new("???").with_id(ids::CONN_STATE));
-    sidebar.add_child(TextView::new("???").with_id(ids::USERNAME));
-    sidebar.add_child(TextView::new("???").with_id(ids::ROOM_ID));
+    sidebar.add_child(TextView::new("").with_id(ids::SERVER_STATE));
+    sidebar.add_child(TextView::new("").with_id(ids::CONN_STATE));
+    sidebar.add_child(TextView::new("").with_id(ids::USERNAME));
+    sidebar.add_child(TextView::new("").with_id(ids::ROOM_ID));
+    sidebar.add_child(TextView::new("").with_id(ids::LAST_UPDATE_TIME));
 
     layout.add_child(sidebar);
 
