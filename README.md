@@ -1,7 +1,6 @@
 srv: screeps room view
 ======================
-[![Linux Build Status][travis-image]][travis-builds]
-[![Windows Build Status][appveyor-image]][appveyor-builds]
+[![Build Status][travis-image]][travis-builds]
 
 A TUI application allowing viewing [Screeps] servers/rooms.
 
@@ -28,7 +27,6 @@ cargo build --release
 
 [travis-image]: https://travis-ci.org/daboross/srv-cli.svg?branch=master
 [travis-builds]: https://travis-ci.org/daboross/srv-cli
-[appveyor-image]: https://ci.appveyor.com/api/projects/status/github/daboross/srv-cli?branch=master&svg=true
 [appveyor-builds]: https://ci.appveyor.com/project/daboross/srv-cli
 [screeps]: https://screeps.com
 [rust-screeps-api]: https://github.com/daboross/rust-screeps-api
