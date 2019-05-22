@@ -255,7 +255,7 @@ where
                     let ty = RoomObjectType::of(&other);
                     writeln!(
                         out,
-                        "{:?} {}",
+                        "{} {}",
                         format!("{:?}", ty).to_lowercase(),
                         other.id()
                     )?;
