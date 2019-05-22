@@ -166,6 +166,7 @@ pub enum RoomObjectType {
     Tombstone,
     Resource,
     Rampart,
+    ConstructionSite,
     Wall,
     Source,
     Mineral,
@@ -199,9 +200,31 @@ impl RoomObjectType {
             };
         }
         transformit!(
-            Road, Container, Tombstone, Resource, Rampart, Wall, Source, Mineral, KeeperLair,
-            Controller, Extractor, Extension, Spawn, Portal, Link, Storage, Tower, Observer,
-            PowerBank, PowerSpawn, Lab, Terminal, Nuker, Creep,
+            Road,
+            Container,
+            Tombstone,
+            ConstructionSite,
+            Resource,
+            Rampart,
+            Wall,
+            Source,
+            Mineral,
+            KeeperLair,
+            Controller,
+            Extractor,
+            Extension,
+            Spawn,
+            Portal,
+            Link,
+            Storage,
+            Tower,
+            Observer,
+            PowerBank,
+            PowerSpawn,
+            Lab,
+            Terminal,
+            Nuker,
+            Creep,
         )
     }
 }
@@ -271,6 +294,7 @@ impl VisualObject {
             } => "█",
             VisualObject::Flag(_) => "F",
             VisualObject::RoomObject(obj) => match obj {
+                KnownRoomObject::ConstructionSite(..) => "△",
                 KnownRoomObject::Container(..) => "▫",
                 KnownRoomObject::Controller(..) => "C",
                 KnownRoomObject::Creep(..) => "●",
