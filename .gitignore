@@ -39,6 +39,5 @@ nb-configuration.xml
 *.iws
 *.sublime-project
 *.sublime-workspace
-Cargo.lock
 .env
 srv.log
