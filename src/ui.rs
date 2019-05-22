@@ -212,7 +212,8 @@ where
                 }
                 other => {
                     let ty = RoomObjectType::of(&other);
-                    writeln!(out, "{} {}", format!("{:?}", ty).to_lowercase(), other.id())?;
+                    let ty = string_morph::to_kebab_case(&format!("{:?}", ty));
+                    writeln!(out, "{} {}", ty, other.id())?;
                 }
             },
         }
