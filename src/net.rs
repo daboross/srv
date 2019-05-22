@@ -247,6 +247,9 @@ where
                         .with_ctx(|_| format!("parsing sockjs message {:?}", string))?;
 
                     match data {
+                        SockjsMessage::Open => debug!("SockJS connection opened"),
+                        SockjsMessage::Heartbeat => debug!("SockJS heartbeat"),
+                        SockjsMessage::Close { .. } => debug!("SockJS connection closed"),
                         SockjsMessage::Message(inner) => {
                             self.handle_message(inner).await?;
                         }
@@ -255,13 +258,18 @@ where
                                 self.handle_message(inner).await?;
                             }
                         }
-                        o => info!("ignoring message: {:?}", o),
                     }
                 }
                 Either::Left(OwnedMessage::Ping(data)) => {
                     self.sink.send(OwnedMessage::Pong(data)).await?;
                 }
-                Either::Left(o) => info!("ignoring message: {:?}", o),
+                Either::Left(OwnedMessage::Binary(data)) => {
+                    warn!("ignoring binary data from websocket: {:?}", data)
+                }
+                Either::Left(OwnedMessage::Close(data)) => {
+                    info!("websocket connection closing. reason: {:?}", data);
+                }
+                Either::Left(OwnedMessage::Pong(_)) => {}
                 Either::Right(cmd) => {
                     debug!("received command {:?}", cmd);
                     match cmd {
@@ -341,6 +349,18 @@ where
                 debug!("updated room {}: {:?}", self.s.room_id, self.s.room);
                 let visual = self.s.room.visualize();
                 self.s.update_ui(|s| s.room(visual))?;
+            }
+            ScreepsMessage::ServerProtocol { protocol } => {
+                debug!("server protocol: {}", protocol);
+            }
+            ScreepsMessage::ServerTime { time } => {
+                debug!("server time: {}", time);
+            }
+            ScreepsMessage::ServerPackage { package } => {
+                debug!("server package: {}", package);
+            }
+            ScreepsMessage::Other(other) => {
+                warn!("Unkown type of screeps message: {}", other);
             }
             other => debug!("ignoring {:?}", other),
         }
