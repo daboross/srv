@@ -220,6 +220,15 @@ impl InterestingTerrainType {
     }
 }
 
+impl fmt::Display for InterestingTerrainType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            InterestingTerrainType::Swamp => write!(f, "swamp"),
+            InterestingTerrainType::Wall => write!(f, "wall"),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum VisualObject {
     InterestingTerrain {

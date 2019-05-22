@@ -2,15 +2,17 @@ use std::thread;
 
 use cursive::CbSink;
 use futures::{
+    channel::mpsc::unbounded,
     compat::{Future01CompatExt, Sink01CompatExt, Stream01CompatExt},
-    future, FutureExt, Sink, SinkExt, Stream, TryFutureExt, TryStreamExt,
+    future::{self, Either},
+    stream, FutureExt, Sink, SinkExt, Stream, StreamExt, TryFutureExt, TryStreamExt,
 };
 use hyper::client::HttpConnector;
 use hyper_tls::HttpsConnector;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use old_futures::stream::Stream as OldStream;
 use screeps_api::{
-    websocket::{ChannelUpdate, ScreepsMessage, SockjsMessage},
+    websocket::{subscribe, unsubscribe, Channel, ChannelUpdate, ScreepsMessage, SockjsMessage},
     Api, MyInfo, RoomName, TokenStorage,
 };
 use websocket::{ClientBuilder, OwnedMessage};
@@ -22,6 +24,13 @@ use crate::{
 };
 
 pub type Error = Box<::std::error::Error>;
+
+#[derive(Clone, Debug)]
+pub enum Command {
+    /// Command sent by net internals indicating that the connection should be re-established.
+    Reconnect,
+    ChangeRoom(RoomId),
+}
 
 pub fn spawn(config: Config, ui: CbSink) {
     thread::spawn(|| {
@@ -154,6 +163,10 @@ impl Stage1 {
 
         let room = Room::new(room_id.clone(), terrain);
 
+        let (cmd_send, cmd_recv) = unbounded();
+
+        ui::async_update(&self.ui, |s| s.command_sender(cmd_send))?;
+
         let mut s = ConnIndepState {
             config: self.config,
             client: self.client,
@@ -164,6 +177,8 @@ impl Stage1 {
             room,
         };
 
+        let mut cmd_recv = cmd_recv.map(|cmd| Ok(Either::Right(cmd)));
+
         loop {
             let (conn, _) = ClientBuilder::from_url(&ws_url)
                 .async_connect(None)
@@ -173,6 +188,16 @@ impl Stage1 {
             let (sink, stream) = conn.split();
             let mut sink = sink.sink_compat().sink_map_err(Error::from);
             let stream = stream.compat().map_err(Error::from);
+
+            // If we didn't have this, then the loop over this stream would just be waiting for commands
+            // after the network stream stops. This makes sure that if the network stream is disconnected,
+            // then we immediately get a 'Reconnect' message after that.
+            let stream = stream
+                .map(|res| res.map(Either::Left))
+                .chain(stream::once(future::ok(Either::Right(Command::Reconnect))));
+
+            // Listen to both the network stream and our commands
+            let stream = stream::select(stream, cmd_recv);
 
             s.update_ui(|s| s.conn_state(ConnectionState::Authenticating))?;
 
@@ -190,6 +215,7 @@ impl Stage1 {
             debug!("stage 2 ended, stage 1 reconnecting");
             // recapture state
             s = conn.s;
+            cmd_recv = conn.stream.into_inner().1;
 
             s.update_ui(|s| s.conn_state(ConnectionState::Disconnected))?;
         }
@@ -208,13 +234,13 @@ impl ConnIndepState {
 impl<Si, St> Connected<Si, St>
 where
     Si: Sink<OwnedMessage, SinkError = Error> + Unpin,
-    St: Stream<Item = Result<OwnedMessage, Error>> + Unpin,
+    St: Stream<Item = Result<Either<OwnedMessage, Command>, Error>> + Unpin,
 {
     async fn run(&mut self) -> Result<(), Error> {
         debug!("stage 2 main loop starting");
         while let Some(msg) = self.stream.try_next().await? {
             match msg {
-                OwnedMessage::Text(string) => {
+                Either::Left(OwnedMessage::Text(string)) => {
                     info!("handling string:\n{}", string);
                     let data = SockjsMessage::parse(&string)?;
 
@@ -230,13 +256,53 @@ where
                         o => info!("ignoring message: {:?}", o),
                     }
                 }
-                OwnedMessage::Ping(data) => {
+                Either::Left(OwnedMessage::Ping(data)) => {
                     self.sink.send(OwnedMessage::Pong(data)).await?;
                 }
-                o => info!("ignoring message: {:?}", o),
+                Either::Left(o) => info!("ignoring message: {:?}", o),
+                Either::Right(cmd) => {
+                    debug!("received command {:?}", cmd);
+                    match cmd {
+                        Command::Reconnect => return Ok(()),
+                        Command::ChangeRoom(new_room) => {
+                            self.change_room(new_room).await?;
+                        }
+                    }
+                }
             }
         }
 
+        Ok(())
+    }
+
+    async fn change_room(&mut self, room_id: RoomId) -> Result<(), Error> {
+        debug!("starting at room {}", room_id);
+
+        let terrain = self
+            .s
+            .client
+            .room_terrain(room_id.shard.as_ref(), room_id.room_name.to_string())
+            .compat()
+            .await?;
+
+        let old_room_id = self.s.room_id.clone();
+
+        self.sink
+            .send(OwnedMessage::Text(unsubscribe(&Channel::room_detail(
+                old_room_id.room_name,
+                old_room_id.shard.as_ref(),
+            ))))
+            .await?;
+
+        self.sink
+            .send(OwnedMessage::Text(subscribe(&Channel::room_detail(
+                room_id.room_name,
+                room_id.shard.as_ref(),
+            ))))
+            .await?;
+
+        self.s.room_id = room_id.clone();
+        self.s.room = Room::new(room_id, terrain);
         Ok(())
     }
 
@@ -260,12 +326,11 @@ where
                 info!("inside branch");
                 let update_id = RoomId::new(shard_name, room_name);
                 if update_id != self.s.room_id {
-                    info!("error matching room");
-                    return Err(format!(
-                        "update for room {:?} unexpected (expected {:?})",
-                        update_id, self.s.room_id
-                    )
-                    .into());
+                    warn!(
+                        "received update for wrong room: expected {}, found {}",
+                        self.s.room_id, update_id
+                    );
+                    return Ok(());
                 }
 
                 info!("running update");

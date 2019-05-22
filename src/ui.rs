@@ -1,16 +1,27 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, fmt};
 
 use cursive::{
-    direction::Orientation,
-    theme::{BaseColor, Color},
+    direction::{Direction, Orientation},
+    event::{Event, EventResult, Key, MouseButton, MouseEvent},
+    theme::{BaseColor, Color, ColorStyle},
     utils::markup::StyledString,
     view::*,
     views::*,
-    CbSink, Cursive, Printer,
+    CbSink, Cursive, Printer, Vec2, XY,
 };
-use screeps_api::{websocket::types::room::objects::KnownRoomObject, MyInfo};
+use futures::channel::mpsc::UnboundedSender;
+use log::{debug, warn};
+use screeps_api::{
+    websocket::types::room::{objects::KnownRoomObject, resources::ResourceType},
+    MyInfo,
+};
 
-use crate::room::{ConnectionState, InterestingTerrainType, VisualObject, VisualRoom};
+use crate::{
+    net::Command,
+    room::{
+        ConnectionState, InterestingTerrainType, RoomId, RoomObjectType, VisualObject, VisualRoom,
+    },
+};
 
 mod ids {
     pub const CONN_STATE: &str = "conn-state";
@@ -18,14 +29,20 @@ mod ids {
     pub const USERNAME: &str = "username";
     pub const ROOM_ID: &str = "room-id";
     pub const LAST_UPDATE_TIME: &str = "last-update-game-time";
+    pub const HOVER_INFO: &str = "hover-info";
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, smart_default::SmartDefault)]
 pub struct State {
     server: Option<String>,
     connection: Option<ConnectionState>,
     user_info: Option<MyInfo>,
     room: Option<VisualRoom>,
+    send: Option<UnboundedSender<Command>>,
+    /// Not the main storage for cursor (that's in RoomView), but a read-only version
+    /// kept up to date for use by other views.
+    #[default(_code = "XY::new(25, 25)")]
+    cursor: XY<i32>,
 }
 
 pub struct CursiveStatePair<'a, 'b> {
@@ -33,7 +50,11 @@ pub struct CursiveStatePair<'a, 'b> {
     state: &'b mut State,
 }
 
-impl CursiveStatePair<'_, '_> {
+impl<'a, 'b> CursiveStatePair<'a, 'b> {
+    fn new(siv: &'a mut Cursive, state: &'b mut State) -> Self {
+        CursiveStatePair { siv, state }
+    }
+
     pub fn server(&mut self, server: String) {
         self.siv
             .find_id::<TextView>(ids::SERVER_STATE)
@@ -64,6 +85,7 @@ impl CursiveStatePair<'_, '_> {
                 .set_content(format!("updated: {}", updated));
         }
         self.state.room = Some(room);
+        self.update_hover_info();
     }
 
     pub fn conn_state(&mut self, state: ConnectionState) {
@@ -80,6 +102,35 @@ impl CursiveStatePair<'_, '_> {
             .expect("expected to find CONN_STATE view")
             .set_content(StyledString::styled(state.to_string(), Color::Dark(color)));
     }
+
+    pub fn command_sender(&mut self, send: UnboundedSender<Command>) {
+        self.state.send = Some(send);
+    }
+
+    /// Requires cursor to be between (0, 0) and (50, 50)
+    pub fn cursor(&mut self, cursor: XY<i32>) {
+        self.state.cursor = cursor;
+        self.update_hover_info();
+    }
+
+    fn update_hover_info(&mut self) {
+        if let Some(room) = &self.state.room {
+            let things = room
+                .objs
+                .get((self.state.cursor.x as usize, self.state.cursor.y as usize))
+                .expect("expected cursor passed in to be in valid range");
+
+            let time = room.last_update_time.unwrap_or_default();
+
+            let mut desc = String::new();
+            format_info(&mut desc, time, things).unwrap();
+
+            self.siv
+                .find_id::<TextView>(ids::HOVER_INFO)
+                .expect("expected to find HOVER_INFO view")
+                .set_content(desc);
+        }
+    }
 }
 
 thread_local! {
@@ -93,22 +144,21 @@ pub fn async_update<F: FnOnce(&mut CursiveStatePair) + Send + 'static>(
 ) -> Result<(), crate::net::Error> {
     sink.send(Box::new(|siv: &mut Cursive| {
         STATE.with(|state| {
-            func(&mut CursiveStatePair {
-                siv,
-                state: &mut state.borrow_mut(),
-            });
-        });
+            func(&mut CursiveStatePair::new(siv, &mut state.borrow_mut()));
+        })
     }))
     .map_err(From::from)
 }
 
+fn sync_update<F: FnOnce(&mut CursiveStatePair)>(siv: &mut Cursive, func: F) {
+    STATE.with(|state| {
+        func(&mut CursiveStatePair::new(siv, &mut state.borrow_mut()));
+    })
+}
+
 pub fn setup(c: &mut Cursive) {
     let mut layout = LinearLayout::new(Orientation::Horizontal);
-    layout.add_child(BoxView::new(
-        SizeConstraint::Fixed(52),
-        SizeConstraint::Fixed(52),
-        Canvas::new(()).with_draw(draw_room),
-    ));
+    layout.add_child(RoomView::new());
 
     let mut sidebar = LinearLayout::new(Orientation::Vertical);
     sidebar.add_child(TextView::new("").with_id(ids::SERVER_STATE));
@@ -116,14 +166,19 @@ pub fn setup(c: &mut Cursive) {
     sidebar.add_child(TextView::new("").with_id(ids::USERNAME));
     sidebar.add_child(TextView::new("").with_id(ids::ROOM_ID));
     sidebar.add_child(TextView::new("").with_id(ids::LAST_UPDATE_TIME));
+    sidebar.add_child(
+        TextView::new("")
+            .with_id(ids::HOVER_INFO)
+            .boxed(SizeConstraint::AtLeast(50), SizeConstraint::Free),
+    );
 
     layout.add_child(sidebar);
 
-    layout.add_child(
-        DebugView::new()
-            .boxed(SizeConstraint::AtMost(40), SizeConstraint::AtMost(40))
-            .squishable(),
-    );
+    // layout.add_child(
+    //     DebugView::new()
+    //         .boxed(SizeConstraint::AtMost(80), SizeConstraint::Free)
+    //         .squishable(),
+    // );
 
     c.add_layer(layout);
 }
@@ -168,18 +223,168 @@ fn to_symbol(thing: &VisualObject) -> &'static str {
     }
 }
 
-fn draw_room(_: &(), printer: &Printer) {
-    STATE.with(|state| {
-        let state = state.borrow();
-        if let Some(room) = state.room.as_ref() {
-            for (pos, objs) in room.objs.indexed_iter() {
-                let (x, y) = (pos.0 + 1, pos.1 + 1);
-                if let Some(obj) = objs.last() {
-                    printer.print((x, y), to_symbol(obj));
-                } else {
-                    printer.print((x, y), " ");
+fn format_info<W>(out: &mut W, current_time: u32, things: &[VisualObject]) -> fmt::Result
+where
+    W: fmt::Write,
+{
+    for obj in things {
+        match obj {
+            VisualObject::InterestingTerrain { ty, .. } => writeln!(out, "Terrain: {}", ty)?,
+            VisualObject::Flag(f) => writeln!(out, "Flag {}", f.name)?,
+            VisualObject::RoomObject(obj) => match obj {
+                KnownRoomObject::Creep(c) => {
+                    writeln!(out, "Creep {}:", c.name)?;
+                    writeln!(out, " hits: {}/{}", c.hits, c.hits_max)?;
+                    if c.fatigue != 0 {
+                        writeln!(out, " fatigue: {}", c.fatigue)?;
+                    }
+                    if let Some(age_time) = c.age_time {
+                        writeln!(out, " life: {}", age_time - current_time)?;
+                    }
+                    if c.capacity > 0 {
+                        writeln!(
+                            out,
+                            " capacity: {}/{}",
+                            c.carry_contents().map(|(_, amt)| amt).sum::<i32>(),
+                            c.capacity
+                        )?;
+                        format_object_contents(out, c.carry_contents())?;
+                    }
+                }
+                other => {
+                    let ty = RoomObjectType::of(&other);
+                    writeln!(out, "{:?} {}", ty, other.id())?;
+                }
+            },
+        }
+    }
+
+    Ok(())
+}
+
+fn format_object_contents<W, T>(out: &mut W, contents: T) -> fmt::Result
+where
+    W: fmt::Write,
+    T: Iterator<Item = (ResourceType, i32)>,
+{
+    for (ty, amount) in contents {
+        if amount > 0 {
+            writeln!(out, "  {:?}: {}", ty, amount)?;
+        }
+    }
+    Ok(())
+}
+
+#[derive(Clone, Debug, smart_default::SmartDefault)]
+struct RoomView {
+    #[default(_code = "XY::new(26, 26)")]
+    cursor: XY<i32>,
+}
+
+impl RoomView {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl View for RoomView {
+    fn draw(&self, printer: &Printer) {
+        STATE.with(|state| {
+            let state = state.borrow();
+            if let Some(room) = state.room.as_ref() {
+                for (pos, objs) in room.objs.indexed_iter() {
+                    let (x, y) = (pos.0 + 1, pos.1 + 1);
+                    let symbol = if let Some(obj) = objs.last() {
+                        to_symbol(obj)
+                    } else {
+                        " "
+                    };
+                    if self.cursor.x == pos.0 as i32 && self.cursor.y == pos.1 as i32 {
+                        printer.print_styled(
+                            (x, y),
+                            From::from(&StyledString::styled(
+                                symbol,
+                                ColorStyle {
+                                    front: Color::Dark(BaseColor::Magenta).into(),
+                                    back: Color::Light(BaseColor::Cyan).into(),
+                                },
+                            )),
+                        );
+                    } else {
+                        printer.print((x, y), symbol);
+                    }
                 }
             }
+        });
+    }
+
+    fn on_event(&mut self, e: Event) -> EventResult {
+        #[derive(Debug)]
+        enum Move {
+            Abs(i32, i32),
+            Rel(i32, i32),
         }
-    });
+        let change = match e {
+            Event::Key(Key::Left) | Event::Char('h') => Move::Rel(-1, 0),
+            Event::Key(Key::Right) | Event::Char('l') => Move::Rel(1, 0),
+            Event::Key(Key::Up) | Event::Char('k') => Move::Rel(0, -1),
+            Event::Key(Key::Down) | Event::Char('j') => Move::Rel(0, 1),
+            Event::Mouse {
+                offset,
+                position,
+                event: MouseEvent::Press(MouseButton::Left),
+                ..
+            } => Move::Abs(
+                position.x as i32 - offset.x as i32 - 1,
+                position.y as i32 - offset.y as i32 - 1,
+            ),
+            _ => return EventResult::Ignored,
+        };
+
+        debug!("canvas event: {:?}", change);
+
+        match change {
+            Move::Abs(x, y) => {
+                self.cursor = XY::new(x, y);
+            }
+            Move::Rel(x, y) => {
+                self.cursor.x += x;
+                self.cursor.y += y;
+            }
+        }
+
+        let rdx = self.cursor.x.div_euclid(50);
+        let rdy = self.cursor.y.div_euclid(50);
+        self.cursor.x = self.cursor.x.rem_euclid(50);
+        self.cursor.y = self.cursor.y.rem_euclid(50);
+
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+
+            if rdx != 0 || rdy != 0 {
+                if let Some(visual_room) = &state.room {
+                    let new_room_name = visual_room.room_id.room_name + (rdx, rdy);
+                    let new_room = RoomId::new(visual_room.room_id.shard.clone(), new_room_name);
+                    debug!("changing room from {} to {}", visual_room.room_id, new_room);
+                    if let Some(channel) = state.send.as_mut() {
+                        let res = channel.unbounded_send(Command::ChangeRoom(new_room));
+                        if let Err(e) = res {
+                            warn!("couldn't send command to ui: {}", e);
+                        }
+                    }
+                }
+            }
+        });
+
+        let cursor_to_send = self.cursor;
+        EventResult::with_cb(move |siv| sync_update(siv, move |s| s.cursor(cursor_to_send)))
+    }
+
+    fn take_focus(&mut self, _dir: Direction) -> bool {
+        true
+    }
+
+    fn required_size(&mut self, _: Vec2) -> Vec2 {
+        Vec2::new(52, 52)
+    }
 }
