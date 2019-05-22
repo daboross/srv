@@ -243,7 +243,6 @@ where
         while let Some(msg) = self.stream.try_next().await? {
             match msg {
                 Either::Left(OwnedMessage::Text(string)) => {
-                    info!("handling string:\n{}", string);
                     let data = SockjsMessage::parse(&string)
                         .with_ctx(|_| format!("parsing sockjs message {:?}", string))?;
 
@@ -311,7 +310,6 @@ where
     }
 
     async fn handle_message<'a>(&'a mut self, msg: ScreepsMessage<'a>) -> Result<(), Error> {
-        info!("handling message {:#?}", msg);
         match msg {
             ScreepsMessage::AuthFailed => return Err("authentication failed".into()),
             ScreepsMessage::AuthOk { new_token } => {
@@ -327,7 +325,6 @@ where
                         update,
                     },
             } => {
-                info!("inside branch");
                 let update_id = RoomId::new(shard_name, room_name);
                 if update_id != self.s.room_id {
                     warn!(
@@ -337,19 +334,17 @@ where
                     return Ok(());
                 }
 
-                info!("running update");
                 self.s
                     .room
                     .update(update)
                     .with_ctx(|_| format!("handling room update for {}", update_id))?;
-                info!("update success");
-                info!("room: {:?}", self.s.room);
+                debug!("updated room {}: {:?}", self.s.room_id, self.s.room);
                 let visual = self.s.room.visualize();
                 self.s.update_ui(|s| s.room(visual))?;
             }
             other => debug!("ignoring {:?}", other),
         }
-        info!("handler done successfully");
+        debug!("handled message successfully");
 
         Ok(())
     }
