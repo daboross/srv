@@ -15,29 +15,41 @@ Current features:
 - viewing some information about objects under the current cursor
   - completed: creeps, terrain
 
-![screenshot image of srv](./docs/screenshot.png)
 
 TODO:
-- viewing detailed information about remaining objects
-- create video capture of functionality
+- implement viewing detailed information about remaining object types
+- implement more controls besides just "move around the room"
+
+![screenshot image of srv](./docs/screenshot.png)
 
 ## Building
 
-```
-# check source (for development)
-cargo check
+Requires nightly Rust. Tested with `rustc 1.36.0-nightly (372be4f36 2019-05-14)`.
 
-# run client
-cargo run -- --token 'my_auth_token'
-# to view options
-cargo run -- --help
+Options:
 
-# run release build
-cargo run --release -- --help
-# or
-cargo build --release
-./target/release/srv --help
-```
+- Install snapshot of repository into PATH
+
+  ```
+  cargo install --git https://github.com/daboross/srvc.git
+  ```
+- Install from cloned repository
+  ```
+  cargo install --path .
+  ```
+- Run directly from repository
+
+ ```
+ # debug mode (faster compile, slower runtime)
+ cargo run -- --token 'my_auth_token'
+ cargo run -- --help
+
+ # release
+ cargo run --release -- --help
+ # or
+ cargo build --release
+ ./target/release/srv --help
+ ```
 
 [travis-image]: https://travis-ci.org/daboross/srvc.svg?branch=master
 [travis-builds]: https://travis-ci.org/daboross/srvc
