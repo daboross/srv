@@ -386,6 +386,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "err-ctx"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "fern"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1308,6 +1313,7 @@ dependencies = [
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "cursive 0.12.1-alpha.0 (git+https://github.com/gyscos/Cursive.git)",
  "derive_more 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "err-ctx 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "fern 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-preview 0.3.0-alpha.16 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1836,6 +1842,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum enum-map-internals 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "38b0bacf3ea7aba18ce84032efc3f0fa29f5c814048b742ab3e64d07d83ac3e8"
 "checksum enumset 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cac0a22e173f6570a7d69a2ab9e3fe79cf0dcdd0fdb162bfc932b97158f2b2a7"
 "checksum enumset_derive 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "01d93b926a992a4a526c2a14e2faf734fdef5bf9d0a52ba69a2ca7d4494c284b"
+"checksum err-ctx 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "92ae5f9d06ad387bd2f526d7d86b6cc56fb090bb2180df3841e7f240c951f604"
 "checksum fern 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)" = "29d26fa0f4d433d1956746e66ec10d6bf4d6c8b93cd39965cceea7f7cc78c7dd"
 "checksum fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
 "checksum foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f6f339eb8adc052cd2ca78910fda869aefa38d22d5cb648e6485e4d3fc06f3b1"

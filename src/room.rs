@@ -5,6 +5,7 @@ use std::{
     fmt,
 };
 
+use err_ctx::ResultExt;
 use log::debug;
 use ndarray::{Array, Ix2};
 use screeps_api::{
@@ -14,6 +15,8 @@ use screeps_api::{
     },
     RoomName, RoomTerrain,
 };
+
+use crate::net::Error;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RoomId {
@@ -72,27 +75,34 @@ impl Room {
         }
     }
 
-    pub fn update(&mut self, update: RoomUpdate) -> Result<(), serde_json::Error> {
+    pub fn update(&mut self, update: RoomUpdate) -> Result<(), Error> {
         debug!("updating metadata");
         if let Some(time) = update.game_time {
             self.last_update_time = Some(time);
         }
         debug!("updating objects");
         for (id, data) in update.objects.into_iter() {
-            debug!(
-                "updating {} with data:\n\t{}",
-                id,
-                serde_json::to_string_pretty(&data).unwrap()
-            );
             if data.is_null() {
                 self.objects.remove(&id);
             } else {
-                match self.objects.entry(id) {
+                match self.objects.entry(id.clone()) {
                     Entry::Occupied(entry) => {
-                        entry.into_mut().update(data)?;
+                        entry.into_mut().update(data.clone()).with_ctx(|_| {
+                            format!(
+                                "updating {} with data {}",
+                                id,
+                                serde_json::to_string(&data).unwrap()
+                            )
+                        })?;
                     }
                     Entry::Vacant(entry) => {
-                        entry.insert(serde_json::from_value(data)?);
+                        entry.insert(serde_json::from_value(data.clone()).with_ctx(|_| {
+                            format!(
+                                "creating {} with data {}",
+                                id,
+                                serde_json::to_string(&data).unwrap()
+                            )
+                        })?);
                     }
                 }
             }
@@ -102,20 +112,29 @@ impl Room {
 
         debug!("updating users");
         for (user_id, data) in update.users.into_iter().flat_map(|x| x) {
-            debug!(
-                "updating user {} with data:\n\t{}",
-                user_id,
-                serde_json::to_string_pretty(&data).unwrap()
-            );
             if data.is_null() {
                 self.users.remove(&user_id);
             } else {
-                match self.users.entry(user_id) {
+                match self.users.entry(user_id.clone()) {
                     Entry::Occupied(entry) => {
-                        entry.into_mut().update(serde_json::from_value(data)?);
+                        entry
+                            .into_mut()
+                            .update(serde_json::from_value(data.clone()).with_ctx(|_| {
+                                format!(
+                                    "updating user {} with data {}",
+                                    user_id,
+                                    serde_json::to_string(&data).unwrap(),
+                                )
+                            })?);
                     }
                     Entry::Vacant(entry) => {
-                        entry.insert(serde_json::from_value(data)?);
+                        entry.insert(serde_json::from_value(data.clone()).with_ctx(|_| {
+                            format!(
+                                "creating user {} with data {}",
+                                user_id,
+                                serde_json::to_string(&data).unwrap(),
+                            )
+                        })?);
                     }
                 }
             }

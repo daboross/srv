@@ -145,7 +145,7 @@ pub fn async_update<F: FnOnce(&mut CursiveStatePair) + Send + 'static>(
             func(&mut CursiveStatePair::new(siv, &mut state.borrow_mut()));
         })
     }))
-    .map_err(From::from)
+    .map_err(|e| format!("{}", e).into())
 }
 
 fn sync_update<F: FnOnce(&mut CursiveStatePair)>(siv: &mut Cursive, func: F) {

@@ -1,6 +1,7 @@
 use std::thread;
 
 use cursive::CbSink;
+use err_ctx::ResultExt;
 use futures::{
     channel::mpsc::unbounded,
     compat::{Future01CompatExt, Sink01CompatExt, Stream01CompatExt},
@@ -23,7 +24,7 @@ use crate::{
     ui::{self, CursiveStatePair},
 };
 
-pub type Error = Box<::std::error::Error>;
+pub type Error = Box<::std::error::Error + Send + Sync>;
 
 #[derive(Clone, Debug)]
 pub enum Command {
@@ -148,7 +149,8 @@ impl Stage1 {
             .client
             .room_terrain(room_id.shard.as_ref(), room_id.room_name.to_string())
             .compat()
-            .await?;
+            .await
+            .with_ctx(|_| format!("fetching {} terrain", room_id))?;
 
         debug!("successfully authenticated as {}", user.username);
 
@@ -159,7 +161,7 @@ impl Stage1 {
             .map(AsRef::as_ref)
             .unwrap_or(DEFAULT_OFFICIAL_API_URL);
 
-        let ws_url = transform_url(ws_url)?;
+        let ws_url = transform_url(ws_url).ctx("parsing API url")?;
 
         let room = Room::new(room_id.clone(), terrain);
 
@@ -242,7 +244,8 @@ where
             match msg {
                 Either::Left(OwnedMessage::Text(string)) => {
                     info!("handling string:\n{}", string);
-                    let data = SockjsMessage::parse(&string)?;
+                    let data = SockjsMessage::parse(&string)
+                        .with_ctx(|_| format!("parsing sockjs message {:?}", string))?;
 
                     match data {
                         SockjsMessage::Message(inner) => {
@@ -283,7 +286,8 @@ where
             .client
             .room_terrain(room_id.shard.as_ref(), room_id.room_name.to_string())
             .compat()
-            .await?;
+            .await
+            .with_ctx(|_| format!("fetching {} terrain", room_id))?;
 
         let old_room_id = self.s.room_id.clone();
 
@@ -334,7 +338,10 @@ where
                 }
 
                 info!("running update");
-                self.s.room.update(update)?;
+                self.s
+                    .room
+                    .update(update)
+                    .with_ctx(|_| format!("handling room update for {}", update_id))?;
                 info!("update success");
                 info!("room: {:?}", self.s.room);
                 let visual = self.s.room.visualize();
