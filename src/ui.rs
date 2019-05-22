@@ -229,11 +229,11 @@ where
 {
     for obj in things {
         match obj {
-            VisualObject::InterestingTerrain { ty, .. } => writeln!(out, "Terrain: {}", ty)?,
-            VisualObject::Flag(f) => writeln!(out, "Flag {}", f.name)?,
+            VisualObject::InterestingTerrain { ty, .. } => writeln!(out, "terrain: {}", ty)?,
+            VisualObject::Flag(f) => writeln!(out, "flag {}", f.name)?,
             VisualObject::RoomObject(obj) => match obj {
                 KnownRoomObject::Creep(c) => {
-                    writeln!(out, "Creep {}:", c.name)?;
+                    writeln!(out, "creep {}:", c.name)?;
                     writeln!(out, " hits: {}/{}", c.hits, c.hits_max)?;
                     if c.fatigue != 0 {
                         writeln!(out, " fatigue: {}", c.fatigue)?;
@@ -253,7 +253,12 @@ where
                 }
                 other => {
                     let ty = RoomObjectType::of(&other);
-                    writeln!(out, "{:?} {}", ty, other.id())?;
+                    writeln!(
+                        out,
+                        "{:?} {}",
+                        format!("{:?}", ty).to_lowercase(),
+                        other.id()
+                    )?;
                 }
             },
         }
@@ -269,7 +274,7 @@ where
 {
     for (ty, amount) in contents {
         if amount > 0 {
-            writeln!(out, "  {:?}: {}", ty, amount)?;
+            writeln!(out, "  {}: {}", format!("{:?}", ty).to_lowercase(), amount)?;
         }
     }
     Ok(())
