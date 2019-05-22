@@ -18,9 +18,7 @@ use screeps_api::{
 
 use crate::{
     net::Command,
-    room::{
-        ConnectionState, InterestingTerrainType, RoomId, RoomObjectType, VisualObject, VisualRoom,
-    },
+    room::{ConnectionState, RoomId, RoomObjectType, VisualObject, VisualRoom},
 };
 
 mod ids {
@@ -183,46 +181,6 @@ pub fn setup(c: &mut Cursive) {
     c.add_layer(layout);
 }
 
-fn to_symbol(thing: &VisualObject) -> &'static str {
-    match thing {
-        VisualObject::InterestingTerrain {
-            ty: InterestingTerrainType::Swamp,
-            ..
-        } => "⌇",
-        VisualObject::InterestingTerrain {
-            ty: InterestingTerrainType::Wall,
-            ..
-        } => "█",
-        VisualObject::Flag(_) => "F",
-        VisualObject::RoomObject(obj) => match obj {
-            KnownRoomObject::Container(..) => "▫",
-            KnownRoomObject::Controller(..) => "C",
-            KnownRoomObject::Creep(..) => "●",
-            KnownRoomObject::Extension(..) => "E",
-            KnownRoomObject::Extractor(..) => "X",
-            KnownRoomObject::KeeperLair(..) => "K",
-            KnownRoomObject::Lab(..) => "L",
-            KnownRoomObject::Link(..) => "I",
-            KnownRoomObject::Mineral(..) => "M",
-            KnownRoomObject::Nuker(..) => "N",
-            KnownRoomObject::Observer(..) => "O",
-            KnownRoomObject::Portal(..) => "P",
-            KnownRoomObject::PowerBank(..) => "B",
-            KnownRoomObject::PowerSpawn(..) => "R",
-            KnownRoomObject::Rampart(..) => "▒",
-            KnownRoomObject::Resource(..) => "▪",
-            KnownRoomObject::Road(..) => "╬",
-            KnownRoomObject::Source(..) => "S",
-            KnownRoomObject::Spawn(..) => "P",
-            KnownRoomObject::Storage(..) => "O",
-            KnownRoomObject::Terminal(..) => "T",
-            KnownRoomObject::Tower(..) => "♜",
-            KnownRoomObject::Tombstone(..) => "⚰️",
-            KnownRoomObject::Wall(..) => "W",
-        },
-    }
-}
-
 fn format_info<W>(out: &mut W, current_time: u32, things: &[VisualObject]) -> fmt::Result
 where
     W: fmt::Write,
@@ -253,12 +211,7 @@ where
                 }
                 other => {
                     let ty = RoomObjectType::of(&other);
-                    writeln!(
-                        out,
-                        "{} {}",
-                        format!("{:?}", ty).to_lowercase(),
-                        other.id()
-                    )?;
+                    writeln!(out, "{} {}", format!("{:?}", ty).to_lowercase(), other.id())?;
                 }
             },
         }
@@ -297,28 +250,38 @@ impl View for RoomView {
         STATE.with(|state| {
             let state = state.borrow();
             if let Some(room) = state.room.as_ref() {
-                for (pos, objs) in room.objs.indexed_iter() {
-                    let (x, y) = (pos.0 + 1, pos.1 + 1);
-                    let symbol = if let Some(obj) = objs.last() {
-                        to_symbol(obj)
-                    } else {
-                        " "
-                    };
-                    if self.cursor.x == pos.0 as i32 && self.cursor.y == pos.1 as i32 {
-                        printer.print_styled(
-                            (x, y),
-                            From::from(&StyledString::styled(
-                                symbol,
-                                ColorStyle {
-                                    front: Color::Dark(BaseColor::Magenta).into(),
-                                    back: Color::Light(BaseColor::Cyan).into(),
-                                },
-                            )),
-                        );
-                    } else {
-                        printer.print((x, y), symbol);
-                    }
+                let rendered = room
+                    .rendered_rows
+                    .as_ref()
+                    .expect("expected rows to be rendered");
+                for (idx, row_text) in rendered.iter().enumerate() {
+                    let pos = (1, idx + 1);
+                    printer.print(pos, row_text);
                 }
+                let cursor_ui_pos = ((self.cursor.x + 1) as usize, (self.cursor.y + 1) as usize);
+                let symbol_at_cursor = if self.cursor.x >= 0
+                    && self.cursor.x < 50
+                    && self.cursor.y >= 0
+                    && self.cursor.y < 50
+                {
+                    VisualObject::multiple_to_symbol(
+                        room.objs
+                            .get((self.cursor.x as usize, self.cursor.y as usize))
+                            .unwrap(),
+                    )
+                } else {
+                    " "
+                };
+                printer.print_styled(
+                    cursor_ui_pos,
+                    From::from(&StyledString::styled(
+                        symbol_at_cursor,
+                        ColorStyle {
+                            front: Color::Dark(BaseColor::Magenta).into(),
+                            back: Color::Light(BaseColor::Cyan).into(),
+                        },
+                    )),
+                );
             }
         });
     }

@@ -153,6 +153,8 @@ impl Room {
             list.sort_unstable();
         }
 
+        room.render_rows();
+
         room
     }
 }
@@ -241,7 +243,7 @@ pub enum VisualObject {
 }
 
 impl VisualObject {
-    fn x(&self) -> u32 {
+    pub fn x(&self) -> u32 {
         match self {
             VisualObject::InterestingTerrain { x, .. } => *x,
             VisualObject::Flag(x) => x.x,
@@ -249,11 +251,59 @@ impl VisualObject {
         }
     }
 
-    fn y(&self) -> u32 {
+    pub fn y(&self) -> u32 {
         match self {
             VisualObject::InterestingTerrain { y, .. } => *y,
             VisualObject::Flag(x) => x.y,
             VisualObject::RoomObject(x) => x.y(),
+        }
+    }
+
+    pub fn to_symbol(&self) -> &'static str {
+        match self {
+            VisualObject::InterestingTerrain {
+                ty: InterestingTerrainType::Swamp,
+                ..
+            } => "⌇",
+            VisualObject::InterestingTerrain {
+                ty: InterestingTerrainType::Wall,
+                ..
+            } => "█",
+            VisualObject::Flag(_) => "F",
+            VisualObject::RoomObject(obj) => match obj {
+                KnownRoomObject::Container(..) => "▫",
+                KnownRoomObject::Controller(..) => "C",
+                KnownRoomObject::Creep(..) => "●",
+                KnownRoomObject::Extension(..) => "E",
+                KnownRoomObject::Extractor(..) => "X",
+                KnownRoomObject::KeeperLair(..) => "K",
+                KnownRoomObject::Lab(..) => "L",
+                KnownRoomObject::Link(..) => "I",
+                KnownRoomObject::Mineral(..) => "M",
+                KnownRoomObject::Nuker(..) => "N",
+                KnownRoomObject::Observer(..) => "O",
+                KnownRoomObject::Portal(..) => "P",
+                KnownRoomObject::PowerBank(..) => "B",
+                KnownRoomObject::PowerSpawn(..) => "R",
+                KnownRoomObject::Rampart(..) => "▒",
+                KnownRoomObject::Resource(..) => "▪",
+                KnownRoomObject::Road(..) => "╬",
+                KnownRoomObject::Source(..) => "S",
+                KnownRoomObject::Spawn(..) => "P",
+                KnownRoomObject::Storage(..) => "O",
+                KnownRoomObject::Terminal(..) => "T",
+                KnownRoomObject::Tower(..) => "♜",
+                KnownRoomObject::Tombstone(..) => "⚰️",
+                KnownRoomObject::Wall(..) => "W",
+            },
+        }
+    }
+
+    pub fn multiple_to_symbol(items: &[VisualObject]) -> &'static str {
+        if let Some(obj) = items.last() {
+            obj.to_symbol()
+        } else {
+            " "
         }
     }
 }
@@ -324,6 +374,7 @@ pub struct VisualRoom {
     pub last_update_time: Option<u32>,
     pub room_id: RoomId,
     pub objs: Array<Vec<VisualObject>, Ix2>,
+    pub rendered_rows: Option<Vec<String>>,
 }
 
 impl VisualRoom {
@@ -332,6 +383,7 @@ impl VisualRoom {
             last_update_time,
             room_id,
             objs: Array::from_elem((50, 50), Vec::new()),
+            rendered_rows: None,
         }
     }
 }
@@ -342,5 +394,19 @@ impl VisualRoom {
             .get_mut([item.x() as usize, item.y() as usize])
             .expect("expected all objects to have valid coordinates (0-49)")
             .push(item);
+    }
+
+    fn render_rows(&mut self) {
+        let rows = self
+            .objs
+            .gencolumns()
+            .into_iter()
+            .map(|row| {
+                row.into_iter()
+                    .map(|pos_objs| VisualObject::multiple_to_symbol(&*pos_objs))
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>();
+        self.rendered_rows = Some(rows);
     }
 }
