@@ -179,6 +179,7 @@ pub fn setup(c: &mut Cursive) {
     // );
 
     c.add_layer(layout);
+    c.add_global_callback('q', |c| c.quit());
 }
 
 fn format_info<W>(out: &mut W, current_time: u32, things: &[VisualObject]) -> fmt::Result
