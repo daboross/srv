@@ -39,8 +39,7 @@ cargo build --release
 ./target/release/srv --help
 ```
 
-[travis-image]: https://travis-ci.org/daboross/srv-cli.svg?branch=master
-[travis-builds]: https://travis-ci.org/daboross/srv-cli
-[appveyor-builds]: https://ci.appveyor.com/project/daboross/srv-cli
+[travis-image]: https://travis-ci.org/daboross/srvc.svg?branch=master
+[travis-builds]: https://travis-ci.org/daboross/srvc
 [screeps]: https://screeps.com
 [rust-screeps-api]: https://github.com/daboross/rust-screeps-api
