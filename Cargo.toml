@@ -23,7 +23,7 @@ websocket = "0.22"
 [dependencies.cursive]
 version = "0.12.1-alpha.0"
 default-features = false
-features = ["termion-backend"]
+features = ["crossterm-backend"]
 git = "https://github.com/gyscos/Cursive.git"
 
 [dependencies.old_futures]

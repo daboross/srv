@@ -9,7 +9,7 @@ fn main() {
     let mut siv = if config.dry_run {
         Cursive::dummy()
     } else {
-        Cursive::termion().unwrap()
+        Cursive::default()
     };
     ui::setup(&mut siv);
     net::spawn(config.clone(), siv.cb_sink().clone());
