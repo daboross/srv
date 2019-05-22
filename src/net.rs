@@ -39,10 +39,10 @@ pub fn spawn(config: Config, ui: CbSink) {
         let res = run(config, ui);
 
         if let Err(e) = res {
-            error!("Network thread error: {0} ({0:?})", e);
+            error!("Error occurred: {0} ({0:?})", e);
             // ignore errors sending error report
             let _ = ui::async_update(&err_ui_sink, |s| s.conn_state(ConnectionState::Error));
-            panic!("Error: {:?}", e);
+            panic!("Error occurred: {0} ({0:?})", e);
         }
     });
 }
@@ -95,11 +95,15 @@ impl Stage1 {
     pub fn run(self) {
         debug!("stage 1 starting");
 
+        let err_ui_sink = self.ui.clone();
         tokio::runtime::current_thread::run(
             self.run_tokio()
-                .then(|res| {
+                .then(move |res| {
                     if let Err(e) = res {
                         error!("Error occurred: {0} ({0:?})", e);
+                        let _ = ui::async_update(&err_ui_sink, |s| {
+                            s.conn_state(ConnectionState::Error)
+                        });
                         panic!("Error occurred: {0} ({0:?})", e);
                     }
                     future::ok(())

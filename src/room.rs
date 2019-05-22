@@ -42,7 +42,7 @@ pub enum ConnectionState {
     Authenticating,
     #[display(fmt = "connected")]
     Connected,
-    #[display(fmt = "error!")]
+    #[display(fmt = "network error occurred, see log")]
     Error,
 }
 
