@@ -324,7 +324,8 @@ impl View for RoomView {
         }
 
         let rdx = self.cursor.x.div_euclid(50);
-        let rdy = self.cursor.y.div_euclid(50);
+        // we treat negative values as "north", RoomName treats negative values as "south"
+        let rdy = -self.cursor.y.div_euclid(50);
         self.cursor.x = self.cursor.x.rem_euclid(50);
         self.cursor.y = self.cursor.y.rem_euclid(50);
 
