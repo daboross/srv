@@ -290,8 +290,6 @@ where
     }
 
     async fn change_room(&mut self, room_id: RoomId) -> Result<(), Error> {
-        debug!("starting at room {}", room_id);
-
         let terrain = self
             .s
             .client
@@ -301,6 +299,8 @@ where
             .with_ctx(|_| format!("fetching {} terrain", room_id))?;
 
         let old_room_id = self.s.room_id.clone();
+
+        info!("changing from {} to {}", old_room_id, room_id);
 
         self.sink
             .send(OwnedMessage::Text(unsubscribe(&Channel::room_detail(
@@ -318,6 +318,7 @@ where
 
         self.s.room_id = room_id.clone();
         self.s.room = Room::new(room_id, terrain);
+
         Ok(())
     }
 

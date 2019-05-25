@@ -340,7 +340,7 @@ impl View for RoomView {
                     if let Some(channel) = state.send.as_mut() {
                         let res = channel.unbounded_send(Command::ChangeRoom(new_room));
                         if let Err(e) = res {
-                            warn!("couldn't send command to ui: {}", e);
+                            warn!("couldn't send command to network thread: {}", e);
                         }
                     }
                 }
