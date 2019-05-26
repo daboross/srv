@@ -252,33 +252,32 @@ impl Info for StructureController {
         }
         if self.user.is_some() {
             writeln!(out, " level: {}", self.level)?;
-            if self.level != 8 {
-                let progress = (self.progress_total - self.progress) as f64
-                    / self.progress_total as f64
-                    * 100.0;
-                writeln!(out, " progress: %{:.2}", progress)?;
+            if let Some(required) = self.progress_required() {
+                let progress_percent =
+                    (required as f64 - self.progress as f64) / required as f64 * 100.0;
+                writeln!(out, " progress: %{:.2}", progress_percent)?;
             }
             // TODO: red text for almost downgraded
             if let Some(time) = self.downgrade_time {
                 // TODO: see what this data looks like?
                 writeln!(out, " downgrade time: {}", time)?;
             }
-        }
-        // TODO: only apply this to owned controllers, maybe?
-        writeln!(out, "safemode:")?;
-        if let Some(end_time) = self.safe_mode {
-            if state.game_time < end_time {
-                writeln!(out, " --safe mode active--")?;
-                writeln!(out, " ends in: {}", end_time - state.game_time)?;
+            // TODO: only apply this to owned controllers, maybe?
+            writeln!(out, " safemode:")?;
+            if let Some(end_time) = self.safe_mode {
+                if state.game_time < end_time {
+                    writeln!(out, "  --safe mode active--")?;
+                    writeln!(out, "  ends in: {}", end_time - state.game_time)?;
+                }
             }
-        }
-        writeln!(out, " available: {}", self.safe_mode_available)?;
-        if self.safe_mode_cooldown > state.game_time {
-            writeln!(
-                out,
-                " activation cooldown: {}",
-                self.safe_mode_cooldown - state.game_time
-            )?;
+            writeln!(out, "  available: {}", self.safe_mode_available)?;
+            if self.safe_mode_cooldown > state.game_time {
+                writeln!(
+                    out,
+                    "  activation cooldown: {}",
+                    self.safe_mode_cooldown - state.game_time
+                )?;
+            }
         }
         if let Some(reservation) = &self.reservation {
             if reservation.end_time > state.game_time {
@@ -493,7 +492,7 @@ impl Info for Creep {
 
 impl Info for Resource {
     fn fmt<W: Write>(&self, out: &mut W, state: &InfoInfo) -> fmt::Result {
-        writeln!(out, "dropped {}:", kebab_of_debug(self))?;
+        writeln!(out, "dropped {}:", kebab_of_debug(self.resource_type))?;
         writeln!(out, " amount: {}", self.amount)?;
         Ok(())
     }
@@ -522,7 +521,7 @@ fn fmt_optional_user_prefix<W: Write>(
 }
 
 fn fmt_user_prefix<W: Write>(out: &mut W, user_id: &str, state: &InfoInfo) -> fmt::Result {
-    write!(out, "[{}]", state.username_or_fallback(user_id))
+    write!(out, "[{}] ", state.username_or_fallback(user_id))
 }
 
 fn fmt_id<W: Write>(out: &mut W, id: &str) -> fmt::Result {
