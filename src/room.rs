@@ -3,17 +3,15 @@ use std::{
     cmp::{Ordering, PartialOrd},
     collections::{hash_map::Entry, HashMap},
     fmt,
+    sync::Arc,
 };
 
 use err_ctx::ResultExt;
 use log::debug;
 use ndarray::{Array, Ix2};
 use screeps_api::{
-    endpoints::room_terrain::TerrainType,
-    websocket::{
-        types::room::flags::Flag, types::room::objects::KnownRoomObject, RoomUpdate, RoomUserInfo,
-    },
-    RoomName, RoomTerrain,
+    websocket::{flags::Flag, objects::KnownRoomObject, RoomUpdate, RoomUserInfo},
+    RoomName, RoomTerrain, TerrainType,
 };
 
 use crate::net::Error;

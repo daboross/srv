@@ -12,7 +12,7 @@ use cursive::{
 use futures::channel::mpsc::UnboundedSender;
 use log::{debug, warn};
 use screeps_api::{
-    websocket::types::room::{objects::KnownRoomObject, resources::ResourceType},
+    websocket::{objects::KnownRoomObject, resources::ResourceType},
     MyInfo,
 };
 

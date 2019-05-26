@@ -13,7 +13,10 @@ use hyper_tls::HttpsConnector;
 use log::{debug, error, info, warn};
 use old_futures::stream::Stream as OldStream;
 use screeps_api::{
-    websocket::{subscribe, unsubscribe, Channel, ChannelUpdate, ScreepsMessage, SockjsMessage},
+    websocket::{
+        commands::{subscribe, unsubscribe},
+        Channel, ChannelUpdate, ScreepsMessage, SockjsMessage,
+    },
     Api, MyInfo, RoomName, TokenStorage,
 };
 use websocket::{ClientBuilder, OwnedMessage};
@@ -115,7 +118,7 @@ impl Stage1 {
 
     async fn run_tokio(self) -> Result<(), Error> {
         use screeps_api::{
-            websocket::{connecting::transform_url, *},
+            websocket::{transform_url, *},
             DEFAULT_OFFICIAL_API_URL,
         };
         let tokens = self.client.token_storage().clone();
@@ -207,12 +210,13 @@ impl Stage1 {
 
             s.update_ui(|s| s.conn_state(ConnectionState::Authenticating))?;
 
-            sink.send(OwnedMessage::Text(authenticate(&s.tokens.get().unwrap())))
-                .await?;
-            sink.send(OwnedMessage::Text(subscribe(&Channel::room_detail(
-                s.room_id.room_name,
-                s.room_id.shard.as_ref(),
-            ))))
+            sink.send(OwnedMessage::Text(commands::authenticate(
+                &s.tokens.get().unwrap(),
+            )))
+            .await?;
+            sink.send(OwnedMessage::Text(commands::subscribe(
+                &Channel::room_detail(s.room_id.room_name, s.room_id.shard.as_ref()),
+            )))
             .await?;
 
             let mut conn = Connected { s, sink, stream };
