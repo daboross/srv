@@ -55,9 +55,9 @@ pub struct Room {
     last_update_time: Option<u32>,
     room: RoomId,
     terrain: RoomTerrain,
-    objects: HashMap<String, KnownRoomObject>,
+    objects: HashMap<String, Arc<KnownRoomObject>>,
     flags: Vec<Flag>,
-    users: HashMap<String, RoomUserInfo>,
+    users: HashMap<String, Arc<RoomUserInfo>>,
 }
 
 impl Room {
@@ -85,22 +85,26 @@ impl Room {
             } else {
                 match self.objects.entry(id.clone()) {
                     Entry::Occupied(entry) => {
-                        entry.into_mut().update(data.clone()).with_ctx(|_| {
-                            format!(
-                                "updating {} with data {}",
-                                id,
-                                serde_json::to_string(&data).unwrap()
-                            )
-                        })?;
+                        Arc::make_mut(entry.into_mut())
+                            .update(data.clone())
+                            .with_ctx(|_| {
+                                format!(
+                                    "updating {} with data {}",
+                                    id,
+                                    serde_json::to_string(&data).unwrap()
+                                )
+                            })?;
                     }
                     Entry::Vacant(entry) => {
-                        entry.insert(serde_json::from_value(data.clone()).with_ctx(|_| {
-                            format!(
-                                "creating {} with data {}",
-                                id,
-                                serde_json::to_string(&data).unwrap()
-                            )
-                        })?);
+                        entry.insert(Arc::new(serde_json::from_value(data.clone()).with_ctx(
+                            |_| {
+                                format!(
+                                    "creating {} with data {}",
+                                    id,
+                                    serde_json::to_string(&data).unwrap()
+                                )
+                            },
+                        )?));
                     }
                 }
             }
@@ -115,24 +119,26 @@ impl Room {
             } else {
                 match self.users.entry(user_id.clone()) {
                     Entry::Occupied(entry) => {
-                        entry
-                            .into_mut()
-                            .update(serde_json::from_value(data.clone()).with_ctx(|_| {
+                        Arc::make_mut(entry.into_mut()).update(
+                            serde_json::from_value(data.clone()).with_ctx(|_| {
                                 format!(
                                     "updating user {} with data {}",
                                     user_id,
                                     serde_json::to_string(&data).unwrap(),
                                 )
-                            })?);
+                            })?,
+                        );
                     }
                     Entry::Vacant(entry) => {
-                        entry.insert(serde_json::from_value(data.clone()).with_ctx(|_| {
-                            format!(
-                                "creating user {} with data {}",
-                                user_id,
-                                serde_json::to_string(&data).unwrap(),
-                            )
-                        })?);
+                        entry.insert(Arc::new(serde_json::from_value(data.clone()).with_ctx(
+                            |_| {
+                                format!(
+                                    "creating user {} with data {}",
+                                    user_id,
+                                    serde_json::to_string(&data).unwrap(),
+                                )
+                            },
+                        )?));
                     }
                 }
             }
@@ -144,7 +150,8 @@ impl Room {
     }
 
     pub fn visualize(&self) -> VisualRoom {
-        let mut room = VisualRoom::new(self.last_update_time, self.room.clone());
+        let mut room =
+            VisualRoom::new(self.last_update_time, self.room.clone(), self.users.clone());
 
         for (row_idx, row) in self.terrain.terrain.iter().enumerate() {
             for (col_idx, item) in row.iter().enumerate() {
@@ -279,7 +286,7 @@ pub enum VisualObject {
         ty: InterestingTerrainType,
     },
     Flag(Flag),
-    RoomObject(KnownRoomObject),
+    RoomObject(Arc<KnownRoomObject>),
 }
 
 impl VisualObject {
@@ -310,7 +317,7 @@ impl VisualObject {
                 ..
             } => "█",
             VisualObject::Flag(_) => "F",
-            VisualObject::RoomObject(obj) => match obj {
+            VisualObject::RoomObject(obj) => match &**obj {
                 KnownRoomObject::ConstructionSite(..) => "△",
                 KnownRoomObject::Container(..) => "▫",
                 KnownRoomObject::Controller(..) => "C",
@@ -416,15 +423,21 @@ pub struct VisualRoom {
     pub room_id: RoomId,
     pub objs: Array<Vec<VisualObject>, Ix2>,
     pub rendered_rows: Option<Vec<String>>,
+    pub users: HashMap<String, Arc<RoomUserInfo>>,
 }
 
 impl VisualRoom {
-    fn new(last_update_time: Option<u32>, room_id: RoomId) -> Self {
+    fn new(
+        last_update_time: Option<u32>,
+        room_id: RoomId,
+        users: HashMap<String, Arc<RoomUserInfo>>,
+    ) -> Self {
         VisualRoom {
             last_update_time,
             room_id,
             objs: Array::from_elem((50, 50), Vec::new()),
             rendered_rows: None,
+            users,
         }
     }
 }

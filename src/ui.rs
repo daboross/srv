@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt};
+use std::cell::RefCell;
 
 use cursive::{
     direction::{Direction, Orientation},
@@ -11,15 +11,14 @@ use cursive::{
 };
 use futures::channel::mpsc::UnboundedSender;
 use log::{debug, warn};
-use screeps_api::{
-    websocket::{objects::KnownRoomObject, resources::ResourceType},
-    MyInfo,
-};
+use screeps_api::MyInfo;
 
 use crate::{
     net::Command,
-    room::{ConnectionState, RoomId, RoomObjectType, VisualObject, VisualRoom},
+    room::{ConnectionState, RoomId, VisualObject, VisualRoom},
 };
+
+mod info;
 
 mod ids {
     pub const CONN_STATE: &str = "conn-state";
@@ -120,8 +119,7 @@ impl<'a, 'b> CursiveStatePair<'a, 'b> {
 
             let time = room.last_update_time.unwrap_or_default();
 
-            let mut desc = String::new();
-            format_info(&mut desc, time, things).unwrap();
+            let desc = info::info(things, &info::InfoInfo::new(time, &room.users));
 
             self.siv
                 .find_id::<TextView>(ids::HOVER_INFO)
@@ -180,59 +178,6 @@ pub fn setup(c: &mut Cursive) {
 
     c.add_layer(layout);
     c.add_global_callback('q', |c| c.quit());
-}
-
-fn format_info<W>(out: &mut W, current_time: u32, things: &[VisualObject]) -> fmt::Result
-where
-    W: fmt::Write,
-{
-    for obj in things {
-        match obj {
-            VisualObject::InterestingTerrain { ty, .. } => writeln!(out, "terrain: {}", ty)?,
-            VisualObject::Flag(f) => writeln!(out, "flag {}", f.name)?,
-            VisualObject::RoomObject(obj) => match obj {
-                KnownRoomObject::Creep(c) => {
-                    writeln!(out, "creep {}:", c.name)?;
-                    writeln!(out, " hits: {}/{}", c.hits, c.hits_max)?;
-                    if c.fatigue != 0 {
-                        writeln!(out, " fatigue: {}", c.fatigue)?;
-                    }
-                    if let Some(age_time) = c.age_time {
-                        writeln!(out, " life: {}", age_time - current_time)?;
-                    }
-                    if c.capacity > 0 {
-                        writeln!(
-                            out,
-                            " capacity: {}/{}",
-                            c.carry_contents().map(|(_, amt)| amt).sum::<i32>(),
-                            c.capacity
-                        )?;
-                        format_object_contents(out, c.carry_contents())?;
-                    }
-                }
-                other => {
-                    let ty = RoomObjectType::of(&other);
-                    let ty = string_morph::to_kebab_case(&format!("{:?}", ty));
-                    writeln!(out, "{} {}", ty, other.id())?;
-                }
-            },
-        }
-    }
-
-    Ok(())
-}
-
-fn format_object_contents<W, T>(out: &mut W, contents: T) -> fmt::Result
-where
-    W: fmt::Write,
-    T: Iterator<Item = (ResourceType, i32)>,
-{
-    for (ty, amount) in contents {
-        if amount > 0 {
-            writeln!(out, "  {}: {}", format!("{:?}", ty).to_lowercase(), amount)?;
-        }
-    }
-    Ok(())
 }
 
 #[derive(Clone, Debug, smart_default::SmartDefault)]
