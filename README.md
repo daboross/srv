@@ -12,8 +12,9 @@ Current features:
 - viewing rooms
 - defaulting to a user's owned room when starting up
 - navigating around room with arrow keys or hjlk
+- switching shards by pressing 's' key
 - viewing some information about objects under the current cursor
-  - completed: creeps, terrain
+  - completed: creeps, terrain, ~1/2 of types
 
 
 TODO:
