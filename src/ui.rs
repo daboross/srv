@@ -1,9 +1,10 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, rc::Rc};
 
 use cursive::{
     direction::{Direction, Orientation},
     event::{Event, EventResult, Key, MouseButton, MouseEvent},
-    theme::{BaseColor, Color, ColorStyle},
+    menu::MenuTree,
+    theme::{BaseColor, Color, ColorStyle, Effect},
     utils::markup::StyledString,
     view::*,
     views::*,
@@ -27,6 +28,8 @@ mod ids {
     pub const ROOM_ID: &str = "room-id";
     pub const LAST_UPDATE_TIME: &str = "last-update-game-time";
     pub const HOVER_INFO: &str = "hover-info";
+
+    pub const SHARD_SELECT_LIST: &str = "shard-select-list";
 }
 
 #[derive(Clone, Debug, smart_default::SmartDefault)]
@@ -36,10 +39,23 @@ pub struct State {
     user_info: Option<MyInfo>,
     room: Option<VisualRoom>,
     send: Option<UnboundedSender<Command>>,
+    shards: Option<Vec<String>>,
     /// Not the main storage for cursor (that's in RoomView), but a read-only version
     /// kept up to date for use by other views.
     #[default(_code = "XY::new(25, 25)")]
     cursor: XY<i32>,
+}
+
+impl State {
+    fn send_command(&mut self, command: Command) {
+        match &mut self.send {
+            Some(s) => match s.unbounded_send(command) {
+                Ok(()) => (),
+                Err(e) => warn!("couldn't send command to network thread: {}", e),
+            },
+            None => warn!("couldn't send command to network thread: no sender attached"),
+        }
+    }
 }
 
 pub struct CursiveStatePair<'a, 'b> {
@@ -98,6 +114,49 @@ impl<'a, 'b> CursiveStatePair<'a, 'b> {
             .find_id::<TextView>(ids::CONN_STATE)
             .expect("expected to find CONN_STATE view")
             .set_content(StyledString::styled(state.to_string(), Color::Dark(color)));
+    }
+
+    pub fn shards(&mut self, shards: Vec<String>) {
+        if self.state.shards.as_ref() != Some(&shards) {
+            self.state.shards = Some(shards);
+            self.shard_select_popup();
+        }
+    }
+
+    fn shard_select_popup(&mut self) {
+        if self
+            .siv
+            .find_id::<MenuPopup>(ids::SHARD_SELECT_LIST)
+            .is_some()
+        {
+            return;
+        }
+        let shards = match &self.state.shards {
+            None => {
+                self.state.send_command(Command::FetchShardNames);
+                return;
+            }
+            Some(v) => v,
+        };
+        let mut menu = MenuTree::new();
+        for shard in shards.iter() {
+            let cloned_shard = shard.clone();
+            menu.add_leaf(&**shard, move |s| {
+                debug!("changing shard to {}", cloned_shard);
+                let cloned_shard = cloned_shard.clone();
+                sync_update(s, |s| {
+                    s.state.send_command(Command::ChangeShard(cloned_shard));
+                });
+            });
+        }
+        let popup = MenuPopup::new(Rc::new(menu));
+        let layer = LinearLayout::new(Orientation::Vertical)
+            .child(TextView::new("Choose a shard"))
+            .child(popup.with_id(ids::SHARD_SELECT_LIST));
+        self.siv.add_layer(layer);
+        self.siv
+            .focus(&Selector::Id(ids::SHARD_SELECT_LIST))
+            .expect("just added shard list");
     }
 
     pub fn command_sender(&mut self, send: UnboundedSender<Command>) {
@@ -178,6 +237,7 @@ pub fn setup(c: &mut Cursive) {
 
     c.add_layer(layout);
     c.add_global_callback('q', |c| c.quit());
+    c.add_global_callback('s', |siv| sync_update(siv, |s| s.shard_select_popup()));
 }
 
 #[derive(Clone, Debug, smart_default::SmartDefault)]
@@ -282,12 +342,7 @@ impl View for RoomView {
                     let new_room_name = visual_room.room_id.room_name + (rdx, rdy);
                     let new_room = RoomId::new(visual_room.room_id.shard.clone(), new_room_name);
                     debug!("changing room from {} to {}", visual_room.room_id, new_room);
-                    if let Some(channel) = state.send.as_mut() {
-                        let res = channel.unbounded_send(Command::ChangeRoom(new_room));
-                        if let Err(e) = res {
-                            warn!("couldn't send command to network thread: {}", e);
-                        }
-                    }
+                    state.send_command(Command::ChangeRoom(new_room));
                 }
             }
         });

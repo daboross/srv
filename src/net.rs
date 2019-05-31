@@ -34,6 +34,8 @@ pub enum Command {
     /// Command sent by net internals indicating that the connection should be re-established.
     Reconnect,
     ChangeRoom(RoomId),
+    ChangeShard(String),
+    FetchShardNames,
 }
 
 pub fn spawn(config: Config, ui: CbSink) {
@@ -281,9 +283,17 @@ where
                 Either::Right(cmd) => {
                     debug!("received command {:?}", cmd);
                     match cmd {
-                        Command::Reconnect => return Ok(()),
+                        Command::Reconnect => {
+                            return Ok(());
+                        }
                         Command::ChangeRoom(new_room) => {
                             self.change_room(new_room).await?;
+                        }
+                        Command::ChangeShard(shard_name) => {
+                            self.change_shard(shard_name).await?;
+                        }
+                        Command::FetchShardNames => {
+                            self.fetch_shard_names().await?;
                         }
                     }
                 }
@@ -323,6 +333,34 @@ where
         self.s.room_id = room_id.clone();
         self.s.room = Room::new(room_id, terrain);
 
+        Ok(())
+    }
+
+    async fn change_shard(&mut self, shard_name: String) -> Result<(), Error> {
+        let room_name = self
+            .s
+            .client
+            .shard_start_room(&*shard_name)?
+            .compat()
+            .await?
+            .room_name;
+        let room_name = RoomName::new(&room_name).map_err(|e| e.into_owned())?;
+
+        self.change_room(RoomId::new(Some(shard_name), room_name))
+            .await
+    }
+
+    async fn fetch_shard_names(&mut self) -> Result<(), Error> {
+        let res = self
+            .s
+            .client
+            .shard_list()
+            .compat()
+            .await?
+            .into_iter()
+            .map(|info| info.name)
+            .collect();
+        self.s.update_ui(|s| s.shards(res))?;
         Ok(())
     }
 
