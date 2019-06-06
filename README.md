@@ -4,7 +4,7 @@ srv: screeps room view
 
 A TUI application allowing viewing [Screeps] servers/rooms.
 
-Screeps is a true programming MMO where users uploading JavaScript code to power their online empires.
+Screeps is a programming MMO: users control their creeps with JavaScript, and the server itself is [open source](screeps-server)
 
 Uses the [rust-screeps-api] library for networking.
 
@@ -56,3 +56,4 @@ Options:
 [travis-builds]: https://travis-ci.org/daboross/srvc
 [screeps]: https://screeps.com
 [rust-screeps-api]: https://github.com/daboross/rust-screeps-api
+[screeps-server]: https://github.com/screeps/screeps
