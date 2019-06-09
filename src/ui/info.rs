@@ -487,13 +487,12 @@ impl Info for Tombstone {
         fmt_user_prefix(out, &self.user, state)?;
         writeln!(out, "tombstone:")?;
         fmt_id(out, &self.id)?;
+        writeln!(out, " died: {}", state.game_time - self.death_time)?;
+        writeln!(out, " decay: {}", self.decay_time - state.game_time)?;
         writeln!(out, " creep:")?;
         writeln!(out, "  id: {}", self.creep_id)?;
         writeln!(out, "  name: {}", self.creep_name)?;
         writeln!(out, "  ttl: {}", self.creep_ticks_to_live)?;
-        writeln!(out, " died: {}", state.game_time - self.death_time)?;
-        writeln!(out, " decay in: {}", self.decay_time - state.game_time)?;
-        writeln!(out, " contents:")?;
         format_object_contents(out, self.resources())?;
         Ok(())
     }
