@@ -13,15 +13,18 @@ Current features:
 - defaulting to a user's owned room when starting up
 - navigating around room with arrow keys or hjlk
 - switching shards by pressing 's' key
-- viewing some information about objects under the current cursor
-  - completed: creeps, terrain, ~1/2 of types
-
+- viewing basic information about objects under cursor
 
 TODO:
-- implement viewing detailed information about remaining object types
 - implement more controls besides just "move around the room"
+- implement some display of what actions happened last tick
+- implement other viewing modes
+    - profiles
+    - leaderboards
+    - messages
+    - console
 
-![screenshot image of srv](./docs/screenshot.png)
+![screenshot image of srv's operation](./docs/screenshot2.png)
 
 ## Building
 
