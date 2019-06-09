@@ -133,7 +133,7 @@ impl Info for KnownRoomObject {
 
 impl Info for Source {
     fn fmt<W: Write>(&self, out: &mut W, state: &InfoInfo) -> fmt::Result {
-        writeln!(out, "source: {}/{}", self.energy, self.energy_capacity)?;
+        writeln!(out, "source:")?;
         fmt_id(out, &self.id)?;
         fmt_energy(out, self.energy, self.energy_capacity as i32)?;
         if self.energy != self.energy_capacity {
@@ -206,6 +206,7 @@ impl Info for StructureRoad {
         writeln!(out, "road:")?;
         fmt_id(out, &self.id)?;
         fmt_hits(out, self.hits, self.hits_max)?;
+        writeln!(out, " decay in: {}", self.next_decay_time - state.game_time)?;
         Ok(())
     }
 }
@@ -216,7 +217,7 @@ impl Info for StructureRampart {
         writeln!(out, "rampart:")?;
         fmt_id(out, &self.id)?;
         fmt_hits_inf(out, self.hits, self.hits_max)?;
-        writeln!(out, " decay in: {}", self.next_decay_time)?;
+        writeln!(out, " decay in: {}", self.next_decay_time - state.game_time)?;
         if self.public {
             writeln!(out, " --public--")?;
         } else {
@@ -303,7 +304,7 @@ impl Info for StructurePortal {
         )?;
         if let Some(date) = self.unstable_date {
             // TODO: figure out time formatting
-            writeln!(out, " decays in some real time")?;
+            writeln!(out, " stable (decay time is in days)")?;
             writeln!(out, "  (time formatting unimplemented)")?;
         }
         if let Some(time) = self.decay_time {
@@ -431,6 +432,15 @@ impl Info for StructureTerminal {
         fmt_id(out, &self.id)?;
         fmt_hits(out, self.hits, self.hits_max)?;
         fmt_disabled(out, self.disabled)?;
+        if self.capacity > 0 {
+            writeln!(
+                out,
+                " capacity: {}/{}",
+                self.resources().map(|(_, amt)| amt).sum::<i32>(),
+                self.capacity
+            )?;
+            format_object_contents(out, self.resources())?;
+        }
         Ok(())
     }
 }
@@ -440,6 +450,16 @@ impl Info for StructureContainer {
         writeln!(out, "container:")?;
         fmt_id(out, &self.id)?;
         fmt_hits(out, self.hits, self.hits_max)?;
+        writeln!(out, " decay in: {}", self.next_decay_time - state.game_time)?;
+        if self.capacity > 0 {
+            writeln!(
+                out,
+                " capacity: {}/{}",
+                self.resources().map(|(_, amt)| amt).sum::<i32>(),
+                self.capacity
+            )?;
+            format_object_contents(out, self.resources())?;
+        }
         Ok(())
     }
 }
@@ -451,6 +471,13 @@ impl Info for StructureNuker {
         fmt_id(out, &self.id)?;
         fmt_hits(out, self.hits, self.hits_max)?;
         fmt_disabled(out, self.disabled)?;
+        fmt_energy(out, self.energy, self.energy_capacity as i32)?;
+        writeln!(out, " ghodium: {}/{}", self.ghodium, self.ghodium_capacity)?;
+        if self.cooldown_time < state.game_time {
+            writeln!(out, "--ready--")?;
+        } else {
+            writeln!(out, " cooldown: {}", self.cooldown_time - state.game_time)?;
+        }
         Ok(())
     }
 }
@@ -458,8 +485,16 @@ impl Info for StructureNuker {
 impl Info for Tombstone {
     fn fmt<W: Write>(&self, out: &mut W, state: &InfoInfo) -> fmt::Result {
         fmt_user_prefix(out, &self.user, state)?;
-        writeln!(out, "creep:")?;
+        writeln!(out, "tombstone:")?;
         fmt_id(out, &self.id)?;
+        writeln!(out, " creep:")?;
+        writeln!(out, "  id: {}", self.creep_id)?;
+        writeln!(out, "  name: {}", self.creep_name)?;
+        writeln!(out, "  ttl: {}", self.creep_ticks_to_live)?;
+        writeln!(out, " died: {}", state.game_time - self.death_time)?;
+        writeln!(out, " decay in: {}", self.decay_time - state.game_time)?;
+        writeln!(out, " contents:")?;
+        format_object_contents(out, self.resources())?;
         Ok(())
     }
 }
@@ -533,7 +568,7 @@ fn fmt_hits<W: Write>(out: &mut W, hits: i32, hits_max: i32) -> fmt::Result {
 }
 
 fn fmt_hits_inf<W: Write>(out: &mut W, hits: i32, hits_max: i32) -> fmt::Result {
-    if hits > (hits_max * 9) / 10 {
+    if f64::from(hits) > f64::from(hits_max) * 0.9 {
         fmt_hits(out, hits, hits_max)
     } else {
         writeln!(out, "hits: {}", hits)
