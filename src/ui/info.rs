@@ -245,11 +245,11 @@ impl Info for StructureController {
         fmt_id(out, &self.id)?;
         if let Some(sign) = &self.sign {
             // TODO: wrap text?
-            writeln!(out, " {}", sign.text)?;
+            write!(out, "{}", textwrap::indent(&textwrap::fill(&sign.text, 30), "  "))?;
             write!(out, " - {}", state.username_or_fallback(&sign.user_id))?;
 
             // TODO: real time?
-            writeln!(out, " - {} ticks ago", state.game_time - sign.game_time_set)?;
+            writeln!(out, " ({} ticks ago)", i64::from(state.game_time)- i64::from(sign.game_time_set))?;
         }
         if self.user.is_some() {
             writeln!(out, " level: {}", self.level)?;
