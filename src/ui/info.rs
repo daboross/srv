@@ -146,7 +146,7 @@ impl Info for Source {
 }
 
 impl Info for Mineral {
-    fn fmt<W: Write>(&self, out: &mut W, state: &InfoInfo) -> fmt::Result {
+    fn fmt<W: Write>(&self, out: &mut W, _state: &InfoInfo) -> fmt::Result {
         writeln!(
             out,
             "mineral: {} {}",
@@ -171,7 +171,7 @@ impl Info for StructureSpawn {
 }
 
 impl Info for StructureExtension {
-    fn fmt<W: Write>(&self, out: &mut W, state: &InfoInfo) -> fmt::Result {
+    fn fmt<W: Write>(&self, out: &mut W, _state: &InfoInfo) -> fmt::Result {
         writeln!(out, "extension:")?;
         fmt_id(out, &self.id)?;
         fmt_hits(out, self.hits, self.hits_max)?;
@@ -193,7 +193,7 @@ impl Info for StructureExtractor {
 }
 
 impl Info for StructureWall {
-    fn fmt<W: Write>(&self, out: &mut W, state: &InfoInfo) -> fmt::Result {
+    fn fmt<W: Write>(&self, out: &mut W, _state: &InfoInfo) -> fmt::Result {
         writeln!(out, "wall:")?;
         fmt_id(out, &self.id)?;
         fmt_hits_inf(out, self.hits, self.hits_max)?;
@@ -302,7 +302,7 @@ impl Info for StructurePortal {
             "portal -> {},{} in {}",
             self.destination.x, self.destination.y, self.destination.room
         )?;
-        if let Some(date) = self.unstable_date {
+        if let Some(_date) = self.unstable_date {
             // TODO: figure out time formatting
             writeln!(out, " stable (decay time is in days)")?;
             writeln!(out, "  (time formatting unimplemented)")?;
@@ -525,14 +525,14 @@ impl Info for Creep {
 }
 
 impl Info for Resource {
-    fn fmt<W: Write>(&self, out: &mut W, state: &InfoInfo) -> fmt::Result {
+    fn fmt<W: Write>(&self, out: &mut W, _state: &InfoInfo) -> fmt::Result {
         writeln!(out, "dropped {}:", kebab_of_debug(self.resource_type))?;
         writeln!(out, " amount: {}", self.amount)?;
         Ok(())
     }
 }
 impl Info for ConstructionSite {
-    fn fmt<W: Write>(&self, out: &mut W, state: &InfoInfo) -> fmt::Result {
+    fn fmt<W: Write>(&self, out: &mut W, _state: &InfoInfo) -> fmt::Result {
         writeln!(
             out,
             "construction site for {}",

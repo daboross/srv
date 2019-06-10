@@ -4,7 +4,7 @@ use cursive::{
     direction::{Direction, Orientation},
     event::{Event, EventResult, Key, MouseButton, MouseEvent},
     menu::MenuTree,
-    theme::{BaseColor, Color, ColorStyle, Effect},
+    theme::{BaseColor, Color, ColorStyle},
     utils::markup::StyledString,
     view::*,
     views::*,
