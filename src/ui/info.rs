@@ -342,6 +342,13 @@ impl Info for StructureStorage {
         fmt_id(out, &self.id)?;
         fmt_hits(out, self.hits, self.hits_max)?;
         fmt_disabled(out, self.disabled)?;
+        writeln!(
+            out,
+            " capacity: {}/{}",
+            self.resources().map(|(_, amt)| amt).sum::<i32>(),
+            self.capacity
+        )?;
+        format_object_contents(out, self.resources())?;
         Ok(())
     }
 }
@@ -429,8 +436,6 @@ impl Info for StructureLab {
     }
 }
 
-// TODO: Terminal/Container/Nuker/Tombstone/Resource/ConstructionSite
-
 impl Info for StructureTerminal {
     fn fmt<W: Write>(&self, out: &mut W, state: &InfoInfo) -> fmt::Result {
         fmt_user_prefix(out, &self.user, state)?;
@@ -438,15 +443,13 @@ impl Info for StructureTerminal {
         fmt_id(out, &self.id)?;
         fmt_hits(out, self.hits, self.hits_max)?;
         fmt_disabled(out, self.disabled)?;
-        if self.capacity > 0 {
-            writeln!(
-                out,
-                " capacity: {}/{}",
-                self.resources().map(|(_, amt)| amt).sum::<i32>(),
-                self.capacity
-            )?;
-            format_object_contents(out, self.resources())?;
-        }
+        writeln!(
+            out,
+            " capacity: {}/{}",
+            self.resources().map(|(_, amt)| amt).sum::<i32>(),
+            self.capacity
+        )?;
+        format_object_contents(out, self.resources())?;
         Ok(())
     }
 }
@@ -457,15 +460,13 @@ impl Info for StructureContainer {
         fmt_id(out, &self.id)?;
         fmt_hits(out, self.hits, self.hits_max)?;
         writeln!(out, " decay in: {}", self.next_decay_time - state.game_time)?;
-        if self.capacity > 0 {
-            writeln!(
-                out,
-                " capacity: {}/{}",
-                self.resources().map(|(_, amt)| amt).sum::<i32>(),
-                self.capacity
-            )?;
-            format_object_contents(out, self.resources())?;
-        }
+        writeln!(
+            out,
+            " capacity: {}/{}",
+            self.resources().map(|(_, amt)| amt).sum::<i32>(),
+            self.capacity
+        )?;
+        format_object_contents(out, self.resources())?;
         Ok(())
     }
 }
@@ -480,7 +481,7 @@ impl Info for StructureNuker {
         fmt_energy(out, self.energy, self.energy_capacity as i32)?;
         writeln!(out, " ghodium: {}/{}", self.ghodium, self.ghodium_capacity)?;
         if self.cooldown_time < state.game_time {
-            writeln!(out, "--ready--")?;
+            writeln!(out, " --ready--")?;
         } else {
             writeln!(out, " cooldown: {}", self.cooldown_time - state.game_time)?;
         }
@@ -532,18 +533,27 @@ impl Info for Creep {
 
 impl Info for Resource {
     fn fmt<W: Write>(&self, out: &mut W, _state: &InfoInfo) -> fmt::Result {
-        writeln!(out, "dropped {}:", kebab_of_debug(self.resource_type))?;
-        writeln!(out, " amount: {}", self.amount)?;
+        writeln!(
+            out,
+            "dropped: {} {}",
+            self.amount,
+            kebab_of_debug(self.resource_type)
+        )?;
         Ok(())
     }
 }
+
 impl Info for ConstructionSite {
     fn fmt<W: Write>(&self, out: &mut W, _state: &InfoInfo) -> fmt::Result {
         writeln!(
             out,
-            "construction site for {}",
+            "constructing {}:",
             kebab_of_debug(&self.structure_type)
         )?;
+        writeln!(out, " progress: {}/{}", self.progress, self.progress_total)?;
+        if let Some(name) = &self.name {
+            writeln!(out, " name: {}", name)?;
+        }
         Ok(())
     }
 }
