@@ -10,6 +10,7 @@ use cursive::{
     views::*,
     CbSink, Cursive, Printer, Vec2, XY,
 };
+use screeps_api::websocket::UserConsoleUpdate;
 use futures::channel::mpsc::UnboundedSender;
 use log::{debug, warn};
 use screeps_api::MyInfo;
@@ -19,6 +20,7 @@ use crate::{
     room::{ConnectionState, RoomId, VisualObject, VisualRoom},
 };
 
+mod console;
 mod info;
 
 mod ids {
@@ -44,6 +46,7 @@ pub struct State {
     /// kept up to date for use by other views.
     #[default(_code = "XY::new(25, 25)")]
     cursor: XY<i32>,
+    console: console::ConsoleState,
 }
 
 impl State {
@@ -186,6 +189,10 @@ impl<'a, 'b> CursiveStatePair<'a, 'b> {
                 .set_content(desc);
         }
     }
+
+    pub fn console_update(&mut self, update: UserConsoleUpdate) {
+        self.state.console.console_update(&mut self.siv, update);
+    }
 }
 
 thread_local! {
@@ -228,6 +235,8 @@ pub fn setup(c: &mut Cursive) {
     );
 
     layout.add_child(sidebar);
+
+    layout.add_child(STATE.with(|s| s.borrow().console.view()));
 
     // layout.add_child(
     //     DebugView::new()

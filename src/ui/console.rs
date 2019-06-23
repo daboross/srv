@@ -1,0 +1,91 @@
+use std::{cell::RefCell, mem, rc::Rc};
+
+use cursive::{
+    direction::{Direction, Orientation},
+    event::{Event, EventResult, Key, MouseButton, MouseEvent},
+    menu::MenuTree,
+    theme::{BaseColor, Color, ColorStyle},
+    utils::markup::StyledString,
+    view::*,
+    views::*,
+    CbSink, Cursive, Printer, Vec2, XY,
+};
+use debug_stub_derive::DebugStub;
+use screeps_api::websocket::UserConsoleUpdate;
+use smart_default::SmartDefault;
+
+pub const CONSOLE_TEXT: &str = "console-text";
+pub const MAX_LINES_TO_KEEP: u32 = 2000;
+
+#[derive(Clone, DebugStub, SmartDefault)]
+pub struct ConsoleState {
+    /// split so that we can get rid of old lines without technically 'splitting' a string
+    /// upper_lines will be filled as soon as lower_lines has 2000 characters.
+    upper_lines: StyledString,
+    lower_lines: StyledString,
+    #[default(_code = "TextContent::new(StyledString::default())")]
+    #[debug_stub = "content handle"]
+    handle: TextContent,
+    lines_in_lower: u32,
+}
+
+impl ConsoleState {
+    pub fn view(&self) -> impl View + 'static {
+        ScrollView::new(TextView::new_with_content(self.handle.clone()))
+            .scroll_strategy(ScrollStrategy::StickToBottom)
+            .show_scrollbars(false)
+            .with_id(CONSOLE_TEXT)
+            .boxed(SizeConstraint::Fixed(80), SizeConstraint::Free)
+    }
+
+    pub fn console_update(&mut self, srv: &mut Cursive, update: UserConsoleUpdate) {
+        // TODO: get scroll offset and reset mode to StickToBottom if already scrolled to bottom
+        // let scroll = srv
+        //     .find_id::<ScrollView<TextArea>>(CONSOLE_TEXT)
+        //     .expect("expected to find CONSOLE_TEXT view");
+        // if scroll.
+        // ();
+        match update {
+            UserConsoleUpdate::Messages {
+                log_messages,
+                result_messages,
+                shard,
+            } => {
+                for msg in log_messages {
+                    self.add_styled_message(Self::format_log_message(&shard, msg));
+                }
+                for msg in result_messages {
+                    self.add_styled_message(Self::format_result_message(&shard, msg));
+                }
+            }
+            UserConsoleUpdate::Error { message, shard } => {
+                self.add_styled_message(Self::format_error_message(&shard, message));
+            }
+        }
+    }
+
+    fn add_styled_message(&mut self, line: StyledString) {
+        if self.lines_in_lower >= MAX_LINES_TO_KEEP {
+            self.upper_lines = mem::replace(&mut self.lower_lines, StyledString::new());
+            self.handle.set_content(self.upper_lines.clone());
+            self.lines_in_lower = 0;
+        }
+        self.lower_lines.append(line.clone());
+        self.handle.append(line);
+    }
+
+    fn format_log_message(shard: &Option<String>, msg: String) -> StyledString {
+        // TODO: formatting
+        StyledString::plain(format!("{}\n", msg))
+    }
+
+    fn format_result_message(shard: &Option<String>, msg: String) -> StyledString {
+        // TODO: formatting
+        StyledString::plain(format!("{}\n", msg))
+    }
+
+    fn format_error_message(shard: &Option<String>, msg: String) -> StyledString {
+        // TODO: formatting
+        StyledString::styled(format!("{}\n", msg), Color::Dark(BaseColor::Red))
+    }
+}

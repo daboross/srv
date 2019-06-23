@@ -220,6 +220,10 @@ impl Stage1 {
                 &Channel::room_detail(s.room_id.room_name, s.room_id.shard.as_ref()),
             )))
             .await?;
+            sink.send(OwnedMessage::Text(commands::subscribe(
+                &Channel::user_console(&s.user.user_id),
+            )))
+            .await?;
 
             let mut conn = Connected { s, sink, stream };
             debug!("stage 1 handing off");
@@ -396,6 +400,17 @@ where
                 debug!("updated room {}: {:?}", self.s.room_id, self.s.room);
                 let visual = self.s.room.visualize();
                 self.s.update_ui(|s| s.room(visual))?;
+            }
+            ScreepsMessage::ChannelUpdate {
+                update: ChannelUpdate::UserConsole { user_id, update },
+            } => {
+                if user_id != self.s.user.user_id {
+                    warn!(
+                        "received console update for wrong user: expected {}, found {}",
+                        self.s.user.user_id, user_id
+                    );
+                }
+                self.s.update_ui(|s| s.console_update(update))?;
             }
             ScreepsMessage::ServerProtocol { protocol } => {
                 debug!("server protocol: {}", protocol);
