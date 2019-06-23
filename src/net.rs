@@ -27,7 +27,7 @@ use crate::{
     ui::{self, CursiveStatePair},
 };
 
-pub type Error = Box<::std::error::Error + Send + Sync>;
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
 #[derive(Clone, Debug)]
 pub enum Command {
