@@ -39,12 +39,12 @@ impl ConsoleState {
     }
 
     pub fn console_update(&mut self, srv: &mut Cursive, update: UserConsoleUpdate) {
-        // TODO: get scroll offset and reset mode to StickToBottom if already scrolled to bottom
-        // let scroll = srv
-        //     .find_id::<ScrollView<TextArea>>(CONSOLE_TEXT)
-        //     .expect("expected to find CONSOLE_TEXT view");
-        // if scroll.
-        // ();
+        let mut scroll = srv
+            .find_id::<ScrollView<TextView>>(CONSOLE_TEXT)
+            .expect("expected to find CONSOLE_TEXT view");
+        if scroll.is_at_bottom() {
+            scroll.set_scroll_strategy(ScrollStrategy::StickToBottom);
+        }
         match update {
             UserConsoleUpdate::Messages {
                 log_messages,
