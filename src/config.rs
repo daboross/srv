@@ -15,7 +15,7 @@ pub struct Config {
     #[structopt(short = "s", long = "shard")]
     pub shard: Option<String>,
     /// The room to watch
-    #[structopt(short = "r", long = "room", parse(try_from_str = "RoomName::new"))]
+    #[structopt(short = "r", long = "room", parse(try_from_str = RoomName::new))]
     pub room: Option<RoomName>,
     /// Increase log verbosity
     #[structopt(short = "v", parse(from_occurrences))]
