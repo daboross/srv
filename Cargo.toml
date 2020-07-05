@@ -38,6 +38,6 @@ version = "=0.3.0-alpha.16"
 features = ["compat"]
 
 [dependencies.screeps-api]
-version = "0.6"
+#version = "0.6"
 git = "https://github.com/daboross/rust-screeps-api.git"
-tag = "screeps-api-0.6.0"
+rev = "1800b3ebcd727273d3fc0355cfcf6147db3a8840"
