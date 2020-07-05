@@ -5,23 +5,21 @@ authors = ["David Ross <daboross@daboross.net>"]
 edition = "2018"
 
 [dependencies]
-bytes = "0.4"
+bytes = "0.5"
 chrono = "0.4"
 derive_more = "0.15"
 debug_stub_derive = "0.3"
 err-ctx = "0.2"
 fern = "0.6"
-hyper = "0.12"
-hyper-tls = "0.3"
+hyper = "0.13"
+hyper-tls = "0.4"
 log = "0.4"
-log-panics = "2"
 ndarray = "0.13"
 serde_json = "1"
 smart-default = "0.5"
 string_morph = "0.1.0"
 structopt = "0.3"
 textwrap = "0.11"
-tokio = "0.1"
 websocket = "0.22"
 
 [dependencies.cursive]
@@ -29,15 +27,23 @@ version = "0.13.0"
 default-features = false
 features = ["crossterm-backend"]
 
+[dependencies.futures]
+version = "0.3"
+features = ["compat"]
+
 [dependencies.old_futures]
 package = "futures"
 version = "0.1"
 
-[dependencies.futures-preview]
-version = "=0.3.0-alpha.16"
-features = ["compat"]
+[dependencies.tokio]
+version = "0.2"
+features = ["rt-util"]
+
+[dependencies.log-panics]
+version = "2"
+features = ["with-backtrace"]
 
 [dependencies.screeps-api]
 #version = "0.6"
 git = "https://github.com/daboross/rust-screeps-api.git"
-rev = "1800b3ebcd727273d3fc0355cfcf6147db3a8840"
+rev = "294d76aaecdb63280d8193ae1d657df1de0ff7a9"

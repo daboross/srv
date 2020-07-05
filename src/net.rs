@@ -6,7 +6,7 @@ use futures::{
     channel::mpsc::unbounded,
     compat::{Future01CompatExt, Sink01CompatExt, Stream01CompatExt},
     future::{self, Either},
-    stream, FutureExt, Sink, SinkExt, Stream, StreamExt, TryFutureExt, TryStreamExt,
+    stream, FutureExt, Sink, SinkExt, Stream, StreamExt, TryStreamExt,
 };
 use hyper::client::HttpConnector;
 use hyper_tls::HttpsConnector;
@@ -82,7 +82,7 @@ struct Connected<Si, St> {
 
 impl Stage1 {
     pub fn new(config: Config, ui: CbSink) -> Result<Self, Error> {
-        let hyper = hyper::Client::builder().build::<_, hyper::Body>(HttpsConnector::new(1)?);
+        let hyper = hyper::Client::builder().build::<_, hyper::Body>(HttpsConnector::new());
 
         let mut client = Api::new(hyper);
 
@@ -101,21 +101,18 @@ impl Stage1 {
         debug!("stage 1 starting");
 
         let err_ui_sink = self.ui.clone();
-        tokio::runtime::current_thread::run(
-            self.run_tokio()
-                .then(move |res| {
-                    if let Err(e) = res {
-                        error!("Error occurred: {0} ({0:?})", e);
-                        let _ = ui::async_update(&err_ui_sink, |s| {
-                            s.conn_state(ConnectionState::Error)
-                        });
-                        panic!("Error occurred: {0} ({0:?})", e);
-                    }
-                    future::ok(())
-                })
-                .boxed_local()
-                .compat(),
-        );
+        let mut runtime =
+            tokio::runtime::Runtime::new().expect("failed to construct tokio runtime");
+        let local = tokio::task::LocalSet::new();
+
+        runtime.block_on(local.run_until(self.run_tokio().then(move |res| {
+            if let Err(e) = res {
+                error!("Error occurred: {0} ({0:?})", e);
+                let _ = ui::async_update(&err_ui_sink, |s| s.conn_state(ConnectionState::Error));
+                panic!("Error occurred: {0} ({0:?})", e);
+            }
+            future::ready(())
+        })))
     }
 
     async fn run_tokio(self) -> Result<(), Error> {
@@ -126,7 +123,7 @@ impl Stage1 {
         let tokens = self.client.token_storage().clone();
 
         // info.user_id allows subscribing to messages.
-        let user = self.client.my_info()?.compat().await?;
+        let user = self.client.my_info()?.await?;
 
         let ui_user = user.clone();
         ui::async_update(&self.ui, |s| s.user(ui_user))?;
@@ -134,17 +131,12 @@ impl Stage1 {
         let (shard, room) = match (self.config.shard.as_ref(), self.config.room.as_ref()) {
             (shard, Some(room)) => (shard.cloned(), room.clone()),
             (Some(shard), None) => {
-                let room_name = self
-                    .client
-                    .shard_start_room(shard)?
-                    .compat()
-                    .await?
-                    .room_name;
+                let room_name = self.client.shard_start_room(shard)?.await?.room_name;
                 let room_name = RoomName::new(&room_name).map_err(|e| e.into_owned())?;
                 (Some(shard.clone()), room_name)
             }
             (None, None) => {
-                let start_room = self.client.world_start_room()?.compat().await?;
+                let start_room = self.client.world_start_room()?.await?;
                 let room_name = RoomName::new(&start_room.room_name).map_err(|e| e.into_owned())?;
                 (start_room.shard, room_name)
             }
@@ -157,7 +149,6 @@ impl Stage1 {
         let terrain = self
             .client
             .room_terrain(room_id.shard.as_ref(), room_id.room_name.to_string())
-            .compat()
             .await
             .with_ctx(|_| format!("fetching {} terrain", room_id))?;
 
@@ -191,7 +182,7 @@ impl Stage1 {
         let mut cmd_recv = cmd_recv.map(|cmd| Ok(Either::Right(cmd)));
 
         loop {
-            let (conn, _) = ClientBuilder::from_url(&ws_url)
+            let (conn, _) = ClientBuilder::from_url(&ws_url.as_str().parse().unwrap())
                 .async_connect(None)
                 .compat()
                 .await?;
@@ -249,7 +240,7 @@ impl ConnIndepState {
 
 impl<Si, St> Connected<Si, St>
 where
-    Si: Sink<OwnedMessage, SinkError = Error> + Unpin,
+    Si: Sink<OwnedMessage, Error = Error> + Unpin,
     St: Stream<Item = Result<Either<OwnedMessage, Command>, Error>> + Unpin,
 {
     async fn run(&mut self) -> Result<(), Error> {
@@ -312,7 +303,6 @@ where
             .s
             .client
             .room_terrain(room_id.shard.as_ref(), room_id.room_name.to_string())
-            .compat()
             .await
             .with_ctx(|_| format!("fetching {} terrain", room_id))?;
 
@@ -345,7 +335,6 @@ where
             .s
             .client
             .shard_start_room(&*shard_name)?
-            .compat()
             .await?
             .room_name;
         let room_name = RoomName::new(&room_name).map_err(|e| e.into_owned())?;
@@ -359,7 +348,6 @@ where
             .s
             .client
             .shard_list()
-            .compat()
             .await?
             .into_iter()
             .map(|info| info.name)

@@ -2,11 +2,15 @@ use bytes::Bytes;
 use screeps_api::RoomName;
 use structopt::StructOpt;
 
+fn bytes_from_str(v: &str) -> Bytes {
+    Bytes::copy_from_slice(v.as_bytes())
+}
+
 #[derive(Clone, Debug, StructOpt)]
 #[structopt(name = "srv", about = "screeps room view client")]
 pub struct Config {
     /// A token to authentication to the server with
-    #[structopt(short = "t", long = "token", parse(from_str))]
+    #[structopt(short = "t", long = "token", parse(from_str = bytes_from_str))]
     pub auth_token: Bytes,
     /// The server to connect to (default is https://screeps.com/api/)
     #[structopt(short = "u", long = "server")]
