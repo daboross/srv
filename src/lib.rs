@@ -1,6 +1,5 @@
-#![feature(async_await, euclidean_division)]
 pub mod config;
+mod logging;
 pub mod net;
 mod room;
-mod logging;
 pub mod ui;

@@ -10,9 +10,9 @@ use cursive::{
     views::*,
     CbSink, Cursive, Printer, Vec2, XY,
 };
-use screeps_api::websocket::UserConsoleUpdate;
 use futures::channel::mpsc::UnboundedSender;
 use log::{debug, warn};
+use screeps_api::websocket::UserConsoleUpdate;
 use screeps_api::MyInfo;
 
 use crate::{

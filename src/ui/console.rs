@@ -1,14 +1,11 @@
-use std::{cell::RefCell, mem, rc::Rc};
+use std::mem;
 
 use cursive::{
-    direction::{Direction, Orientation},
-    event::{Event, EventResult, Key, MouseButton, MouseEvent},
-    menu::MenuTree,
-    theme::{BaseColor, Color, ColorStyle},
+    theme::{BaseColor, Color},
     utils::markup::StyledString,
     view::*,
     views::*,
-    CbSink, Cursive, Printer, Vec2, XY,
+    Cursive,
 };
 use debug_stub_derive::DebugStub;
 use screeps_api::websocket::UserConsoleUpdate;
@@ -74,17 +71,17 @@ impl ConsoleState {
         self.handle.append(line);
     }
 
-    fn format_log_message(shard: &Option<String>, msg: String) -> StyledString {
+    fn format_log_message(_shard: &Option<String>, msg: String) -> StyledString {
         // TODO: formatting
         StyledString::plain(format!("{}\n", msg))
     }
 
-    fn format_result_message(shard: &Option<String>, msg: String) -> StyledString {
+    fn format_result_message(_shard: &Option<String>, msg: String) -> StyledString {
         // TODO: formatting
         StyledString::plain(format!("{}\n", msg))
     }
 
-    fn format_error_message(shard: &Option<String>, msg: String) -> StyledString {
+    fn format_error_message(_shard: &Option<String>, msg: String) -> StyledString {
         // TODO: formatting
         StyledString::styled(format!("{}\n", msg), Color::Dark(BaseColor::Red))
     }
