@@ -28,8 +28,6 @@ websocket = "0.22"
 version = "0.13.0"
 default-features = false
 features = ["crossterm-backend"]
-git = "https://github.com/gyscos/Cursive.git"
-tag = "v0.13.0"
 
 [dependencies.old_futures]
 package = "futures"
