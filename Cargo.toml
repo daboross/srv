@@ -13,7 +13,7 @@ err-ctx = "0.2"
 fern = "0.5"
 hyper = "0.12"
 hyper-tls = "0.3"
-log = "0.4"
+log = "^0.4.8"
 log-panics = "2"
 ndarray = "0.12"
 serde_json = "1"
@@ -25,10 +25,11 @@ tokio = "0.1"
 websocket = "0.22"
 
 [dependencies.cursive]
-version = "0.12.1-alpha.0"
+version = "0.13.0"
 default-features = false
 features = ["crossterm-backend"]
 git = "https://github.com/gyscos/Cursive.git"
+tag = "v0.13.0"
 
 [dependencies.old_futures]
 package = "futures"
@@ -39,5 +40,6 @@ version = "0.3.0-alpha"
 features = ["compat"]
 
 [dependencies.screeps-api]
-version = "0.5"
+version = "0.6"
 git = "https://github.com/daboross/rust-screeps-api.git"
+tag = "screeps-api-0.6.0"
