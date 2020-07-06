@@ -35,7 +35,7 @@ Options:
 - Install snapshot of repository into PATH
 
   ```
-  cargo install --git https://github.com/daboross/srvc.git
+  cargo install --git https://github.com/daboross/srv.git
   ```
 - Install from cloned repository
   ```
@@ -55,8 +55,8 @@ Options:
  ./target/release/srv --help
  ```
 
-[travis-image]: https://travis-ci.org/daboross/srvc.svg?branch=master
-[travis-builds]: https://travis-ci.org/daboross/srvc
+[travis-image]: https://travis-ci.org/daboross/srv.svg?branch=master
+[travis-builds]: https://travis-ci.org/daboross/srv
 [screeps]: https://screeps.com
 [rust-screeps-api]: https://github.com/daboross/rust-screeps-api
 [screeps-server]: https://github.com/screeps/screeps
