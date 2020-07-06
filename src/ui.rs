@@ -73,7 +73,7 @@ impl<'a, 'b> CursiveStatePair<'a, 'b> {
 
     pub fn server(&mut self, server: String) {
         self.siv
-            .find_id::<TextView>(ids::SERVER_STATE)
+            .find_name::<TextView>(ids::SERVER_STATE)
             .expect("expected to find SERVER_STATE view")
             .set_content(server.clone());
         self.state.server = Some(server);
@@ -81,7 +81,7 @@ impl<'a, 'b> CursiveStatePair<'a, 'b> {
 
     pub fn user(&mut self, info: MyInfo) {
         self.siv
-            .find_id::<TextView>(ids::USERNAME)
+            .find_name::<TextView>(ids::USERNAME)
             .expect("expected to find USERNAME view")
             .set_content(info.username.clone());
         self.state.user_info = Some(info);
@@ -90,13 +90,13 @@ impl<'a, 'b> CursiveStatePair<'a, 'b> {
     pub fn room(&mut self, room: VisualRoom) {
         if self.state.room.as_ref().map(|r| &r.room_id) != Some(&room.room_id) {
             self.siv
-                .find_id::<TextView>(ids::ROOM_ID)
+                .find_name::<TextView>(ids::ROOM_ID)
                 .expect("expected to find ROOM_ID view")
                 .set_content(room.room_id.to_string());
         }
         if let Some(updated) = room.last_update_time {
             self.siv
-                .find_id::<TextView>(ids::LAST_UPDATE_TIME)
+                .find_name::<TextView>(ids::LAST_UPDATE_TIME)
                 .expect("expected to find LAST_UPDATE_TIME view")
                 .set_content(format!("updated: {}", updated));
         }
@@ -114,7 +114,7 @@ impl<'a, 'b> CursiveStatePair<'a, 'b> {
         };
 
         self.siv
-            .find_id::<TextView>(ids::CONN_STATE)
+            .find_name::<TextView>(ids::CONN_STATE)
             .expect("expected to find CONN_STATE view")
             .set_content(StyledString::styled(state.to_string(), Color::Dark(color)));
     }
@@ -129,7 +129,7 @@ impl<'a, 'b> CursiveStatePair<'a, 'b> {
     fn shard_select_popup(&mut self) {
         if self
             .siv
-            .find_id::<MenuPopup>(ids::SHARD_SELECT_LIST)
+            .find_name::<MenuPopup>(ids::SHARD_SELECT_LIST)
             .is_some()
         {
             return;
@@ -155,10 +155,10 @@ impl<'a, 'b> CursiveStatePair<'a, 'b> {
         let popup = MenuPopup::new(Rc::new(menu));
         let layer = LinearLayout::new(Orientation::Vertical)
             .child(TextView::new("Choose a shard"))
-            .child(popup.with_id(ids::SHARD_SELECT_LIST));
+            .child(popup.with_name(ids::SHARD_SELECT_LIST));
         self.siv.add_layer(layer);
         self.siv
-            .focus(&Selector::Id(ids::SHARD_SELECT_LIST))
+            .focus(&Selector::Name(ids::SHARD_SELECT_LIST))
             .expect("just added shard list");
     }
 
@@ -184,7 +184,7 @@ impl<'a, 'b> CursiveStatePair<'a, 'b> {
             let desc = info::info(things, &info::InfoInfo::new(time, &room.users));
 
             self.siv
-                .find_id::<TextView>(ids::HOVER_INFO)
+                .find_name::<TextView>(ids::HOVER_INFO)
                 .expect("expected to find HOVER_INFO view")
                 .set_content(desc);
         }
@@ -223,15 +223,15 @@ pub fn setup(c: &mut Cursive) {
     layout.add_child(RoomView::new());
 
     let mut sidebar = LinearLayout::new(Orientation::Vertical);
-    sidebar.add_child(TextView::new("").with_id(ids::SERVER_STATE));
-    sidebar.add_child(TextView::new("").with_id(ids::CONN_STATE));
-    sidebar.add_child(TextView::new("").with_id(ids::USERNAME));
-    sidebar.add_child(TextView::new("").with_id(ids::ROOM_ID));
-    sidebar.add_child(TextView::new("").with_id(ids::LAST_UPDATE_TIME));
+    sidebar.add_child(TextView::new("").with_name(ids::SERVER_STATE));
+    sidebar.add_child(TextView::new("").with_name(ids::CONN_STATE));
+    sidebar.add_child(TextView::new("").with_name(ids::USERNAME));
+    sidebar.add_child(TextView::new("").with_name(ids::ROOM_ID));
+    sidebar.add_child(TextView::new("").with_name(ids::LAST_UPDATE_TIME));
     sidebar.add_child(
         TextView::new("")
-            .with_id(ids::HOVER_INFO)
-            .boxed(SizeConstraint::AtLeast(50), SizeConstraint::Free),
+            .with_name(ids::HOVER_INFO)
+            .resized(SizeConstraint::AtLeast(50), SizeConstraint::Free),
     );
 
     layout.add_child(sidebar);

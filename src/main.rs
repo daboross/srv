@@ -1,4 +1,4 @@
-use cursive::Cursive;
+use cursive::{Cursive, CursiveExt};
 
 use log::debug;
 use srv::{config, net, ui};

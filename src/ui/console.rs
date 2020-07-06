@@ -31,13 +31,13 @@ impl ConsoleState {
         ScrollView::new(TextView::new_with_content(self.handle.clone()))
             .scroll_strategy(ScrollStrategy::StickToBottom)
             .show_scrollbars(false)
-            .with_id(CONSOLE_TEXT)
-            .boxed(SizeConstraint::Fixed(80), SizeConstraint::Free)
+            .with_name(CONSOLE_TEXT)
+            .resized(SizeConstraint::Fixed(80), SizeConstraint::Free)
     }
 
     pub fn console_update(&mut self, srv: &mut Cursive, update: UserConsoleUpdate) {
         let mut scroll = srv
-            .find_id::<ScrollView<TextView>>(CONSOLE_TEXT)
+            .find_name::<ScrollView<TextView>>(CONSOLE_TEXT)
             .expect("expected to find CONSOLE_TEXT view");
         if scroll.is_at_bottom() {
             scroll.set_scroll_strategy(ScrollStrategy::StickToBottom);
